@@ -1,0 +1,123 @@
+"use client"
+
+import Link from "next/link"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { MousePointer, List, Shuffle, Type, ArrowRight } from "lucide-react"
+
+const questionTypes = [
+  {
+    id: "hottext",
+    title: "Hottext Questions",
+    description: "Interactive clickable text elements with rich formatting and styling",
+    icon: MousePointer,
+    href: "/builder/hottext",
+    color: "bg-blue-500",
+  },
+  {
+    id: "choice",
+    title: "Multiple Choice",
+    description: "Single or multiple choice questions with rich content and inline feedback",
+    icon: List,
+    href: "/builder/choice",
+    color: "bg-green-500",
+  },
+  {
+    id: "order",
+    title: "Order Questions",
+    description: "Drag-and-drop ordering questions with multimedia content",
+    icon: Shuffle,
+    href: "/builder/order",
+    color: "bg-purple-500",
+  },
+  {
+    id: "match",
+    title: "Match Questions",
+    description: "Matching pairs with images, text, and rich formatting",
+    icon: ArrowRight,
+    href: "/builder/match",
+    color: "bg-orange-500",
+  },
+  {
+    id: "text-entry",
+    title: "Text Entry",
+    description: "Fill-in-the-blank and short answer questions with pattern validation",
+    icon: Type,
+    href: "/builder/text-entry",
+    color: "bg-red-500",
+  },
+]
+
+export default function HomePage() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <div className="container mx-auto px-4 py-12">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">QTI XML Generator</h1>
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            Create interactive assessment questions with rich content, multimedia support, and perfect formatting
+            preservation. Generate QTI 3.0 compliant XML for all major question types.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+          {questionTypes.map((type) => {
+            const IconComponent = type.icon
+            return (
+              <Card key={type.id} className="hover:shadow-lg transition-shadow duration-200 group">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`p-3 rounded-lg ${type.color} text-white group-hover:scale-110 transition-transform`}
+                    >
+                      <IconComponent className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">{type.title}</CardTitle>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-gray-600 mb-4">{type.description}</CardDescription>
+                  <Link href={type.href}>
+                    <Button className="w-full group-hover:bg-gray-900 transition-colors">
+                      Create Question
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+
+        <div className="mt-16 text-center">
+          <Card className="max-w-4xl mx-auto">
+            <CardHeader>
+              <CardTitle className="text-2xl">Features</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
+                <div>
+                  <h3 className="font-semibold text-lg mb-2">Rich Content</h3>
+                  <p className="text-gray-600">
+                    Add text, images, videos, audio, and HTML with full formatting control
+                  </p>
+                </div>
+             
+                <div>
+                  <h3 className="font-semibold text-lg mb-2">Dynamic Styling</h3>
+                  <p className="text-gray-600">Customize colors, fonts, spacing, and layout for every element</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-2">QTI 3.0 Ready</h3>
+                  <p className="text-gray-600">Generate standards-compliant XML for all assessment platforms</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  )
+}

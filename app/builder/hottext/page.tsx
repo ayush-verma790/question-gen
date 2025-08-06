@@ -1043,7 +1043,7 @@ export default function HottextBuilderPage() {
 
   return (
     <div className="min-h-screen w-full bg-gray-50">
-      <div className="w-[70%] mx-auto px-4 py-8">
+      <div className="w-[60%] mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Hottext Question Builder

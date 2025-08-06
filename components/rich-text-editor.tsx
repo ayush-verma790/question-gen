@@ -328,7 +328,7 @@ export function RichTextEditor({
         <Button variant="outline" size="sm" onClick={() => wrapSelection("<h2>", "</h2>")}>
           H2
         </Button>
-        <Button variant="outline" size="sm" onClick={() => wrapSelection("<br>", "</br>")}>
+        <Button variant="outline" size="sm" onClick={() => wrapSelection("<br/>")}>
           Line Break
         </Button>
 

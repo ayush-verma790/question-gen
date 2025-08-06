@@ -232,219 +232,219 @@ export default function HottextBuilderPage() {
     identifier: "xml-hottext-item-1",
     title: "Identify the Pencil",
     promptBlocks: [
-      {
-        id: "prompt_block_1",
-        type: "text",
-        content:
-          "<div style='font-size: 22px; font-family: Canva Sans; color: #000000; padding: 8px; margin: 4px; border-radius: 0px; border: none; box-shadow: none; text-align: left'>How many dragons are there?</div>",
-        styles: {
-          fontSize: "22px",
-          fontFamily: "Canva Sans",
-          color: "#000000",
-          backgroundColor: "transparent",
-          padding: "8px",
-          margin: "4px",
-          borderRadius: "0px",
-          border: "none",
-          boxShadow: "none",
-          textAlign: "left",
-        },
-        attributes: {},
-      },
-      {
-        id: "prompt_block_2",
-        type: "image",
-        content:
-          "https://i.postimg.cc/vTqDQbkV/Screenshot-2025-07-28-at-8-04-30-PM.png",
-        styles: {
-          padding: "8px",
-          margin: "4px",
-          borderRadius: "0px",
-          border: "none",
-          boxShadow: "none",
-          width: "500px",
-        },
-        attributes: {
-          alt: "Dragon counting image",
-          width: "500",
-          height: "300",
-        },
-      },
+      // {
+      //   id: "prompt_block_1",
+      //   type: "text",
+      //   content:
+      //     "<div style='font-size: 22px; font-family: Canva Sans; color: #000000; padding: 8px; margin: 4px; border-radius: 0px; border: none; box-shadow: none; text-align: left'>How many dragons are there?</div>",
+      //   styles: {
+      //     fontSize: "22px",
+      //     fontFamily: "Canva Sans",
+      //     color: "#000000",
+      //     backgroundColor: "transparent",
+      //     padding: "8px",
+      //     margin: "4px",
+      //     borderRadius: "0px",
+      //     border: "none",
+      //     boxShadow: "none",
+      //     textAlign: "left",
+      //   },
+      //   attributes: {},
+      // },
+      // {
+      //   id: "prompt_block_2",
+      //   type: "image",
+      //   content:
+      //     "https://i.postimg.cc/vTqDQbkV/Screenshot-2025-07-28-at-8-04-30-PM.png",
+      //   styles: {
+      //     padding: "8px",
+      //     margin: "4px",
+      //     borderRadius: "0px",
+      //     border: "none",
+      //     boxShadow: "none",
+      //     width: "500px",
+      //   },
+      //   attributes: {
+      //     alt: "Dragon counting image",
+      //     width: "500",
+      //     height: "300",
+      //   },
+      // },
     ],
     contentBlocks: [],
     hottextItems: [
-      {
-        identifier: "BTN1",
-        content: {
-          type: "text",
-          value: "2",
-        },
-        styles: {
-          display: "inline-block",
-          backgroundColor: "#a94400",
-          color: "white",
-          fontSize: "28px",
-          width: "60px",
-          height: "60px",
-          borderRadius: "10px",
-          textAlign: "center",
-          lineHeight: "60px",
-          padding: "0px",
-          margin: "10px",
-          border: "none",
-          boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-          transition: "all 0.3s ease",
-        },
-        position: { x: 0, y: 0 },
-      },
-      {
-        identifier: "BTN2",
-        content: {
-          type: "text",
-          value: "4",
-        },
-        styles: {
-          display: "inline-block",
-          backgroundColor: "#a94400",
-          color: "white",
-          fontSize: "28px",
-          width: "60px",
-          height: "60px",
-          borderRadius: "10px",
-          textAlign: "center",
-          lineHeight: "60px",
-          padding: "0px",
-          margin: "10px",
-          border: "none",
-          boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-          transition: "all 0.3s ease",
-        },
-        position: { x: 0, y: 0 },
-      },
-      {
-        identifier: "BTN3",
-        content: {
-          type: "text",
-          value: "3",
-        },
-        styles: {
-          display: "inline-block",
-          backgroundColor: "#a94400",
-          color: "white",
-          fontSize: "28px",
-          width: "60px",
-          height: "60px",
-          borderRadius: "10px",
-          textAlign: "center",
-          lineHeight: "60px",
-          padding: "0px",
-          margin: "10px",
-          border: "none",
-          boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-          transition: "all 0.3s ease",
-        },
-        position: { x: 0, y: 0 },
-      },
+      // {
+      //   identifier: "BTN1",
+      //   content: {
+      //     type: "text",
+      //     value: "",
+      //   },
+      //   styles: {
+      //     display: "inline-block",
+      //     backgroundColor: "",
+      //     color: "",
+      //     fontSize: "",
+      //     width: "",
+      //     height: "",
+      //     borderRadius: "",
+      //     textAlign: "center",
+      //     lineHeight: "",
+      //     padding: "0px",
+      //     margin: "0px",
+      //     border: "none",
+      //     boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+      //     transition: "all 0.3s ease",
+      //   },
+      //   position: { x: 0, y: 0 },
+      // },
+      // {
+      //   identifier: "BTN2",
+      //   content: {
+      //     type: "text",
+      //     value: "4",
+      //   },
+      //   styles: {
+      //     display: "inline-block",
+      //     backgroundColor: "#a94400",
+      //     color: "white",
+      //     fontSize: "28px",
+      //     width: "60px",
+      //     height: "60px",
+      //     borderRadius: "10px",
+      //     textAlign: "center",
+      //     lineHeight: "60px",
+      //     padding: "0px",
+      //     margin: "10px",
+      //     border: "none",
+      //     boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+      //     transition: "all 0.3s ease",
+      //   },
+      //   position: { x: 0, y: 0 },
+      // },
+      // {
+      //   identifier: "BTN3",
+      //   content: {
+      //     type: "text",
+      //     value: "3",
+      //   },
+      //   styles: {
+      //     display: "inline-block",
+      //     backgroundColor: "#a94400",
+      //     color: "white",
+      //     fontSize: "28px",
+      //     width: "60px",
+      //     height: "60px",
+      //     borderRadius: "10px",
+      //     textAlign: "center",
+      //     lineHeight: "60px",
+      //     padding: "0px",
+      //     margin: "10px",
+      //     border: "none",
+      //     boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+      //     transition: "all 0.3s ease",
+      //   },
+      //   position: { x: 0, y: 0 },
+      // },
     ],
-    correctAnswers: ["BTN3"],
+    correctAnswers: [],
     correctFeedbackBlocks: [
-      {
-        id: "correct_feedback_block_1",
-        type: "text",
-        content:
-          "<div style='font-size: 22px; font-family: Glacial Indifference; color: #27c94c; padding: 8px; margin: 4px; border-radius: 0px; border: none; box-shadow: none; text-align: left'>That's correct!</div>",
-        styles: {
-          fontSize: "22px",
-          fontFamily: "Glacial Indifference",
-          color: "#27c94c",
-          backgroundColor: "transparent",
-          padding: "8px",
-          margin: "4px",
-          borderRadius: "0px",
-          border: "none",
-          boxShadow: "none",
-          textAlign: "left",
-        },
-        attributes: {},
-      },
-      {
-        id: "correct_feedback_block_2",
-        type: "image",
-        content:
-          "https://i.postimg.cc/26cpj1cx/Screenshot-2025-07-28-at-5-40-08-PM.png",
-        styles: {
-          padding: "8px",
-          margin: "4px",
-          borderRadius: "0px",
-          border: "none",
-          boxShadow: "none",
-          width: "400px",
-        },
-        attributes: {
-          alt: "Success image",
-          width: "400",
-          height: "300",
-        },
-      },
+      // {
+      //   id: "correct_feedback_block_1",
+      //   type: "text",
+      //   content:
+      //     "<div style='font-size: 22px; font-family: Glacial Indifference; color: #27c94c; padding: 8px; margin: 4px; border-radius: 0px; border: none; box-shadow: none; text-align: left'>That's correct!</div>",
+      //   styles: {
+      //     fontSize: "22px",
+      //     fontFamily: "Glacial Indifference",
+      //     color: "#27c94c",
+      //     backgroundColor: "transparent",
+      //     padding: "8px",
+      //     margin: "4px",
+      //     borderRadius: "0px",
+      //     border: "none",
+      //     boxShadow: "none",
+      //     textAlign: "left",
+      //   },
+      //   attributes: {},
+      // },
+      // {
+      //   id: "correct_feedback_block_2",
+      //   type: "image",
+      //   content:
+      //     "https://i.postimg.cc/26cpj1cx/Screenshot-2025-07-28-at-5-40-08-PM.png",
+      //   styles: {
+      //     padding: "8px",
+      //     margin: "4px",
+      //     borderRadius: "0px",
+      //     border: "none",
+      //     boxShadow: "none",
+      //     width: "400px",
+      //   },
+      //   attributes: {
+      //     alt: "Success image",
+      //     width: "400",
+      //     height: "300",
+      //   },
+      // },
     ],
     incorrectFeedbackBlocks: [
-      {
-        id: "incorrect_feedback_block_1",
-        type: "text",
-        content:
-          "<div style='font-size: 22px; font-family: Glacial Indifference; padding: 8px; margin: 4px; border-radius: 0px; border: none; boxShadow: none; text-align: left'><span style='font-family: Arial, sans-serif; font-size: 30px; font-weight: bold; color: #FF0000;'>Nice Try!</span><br/><br/><span style='font-family: Arial, sans-serif; font-size: 32px; font-weight: bold; color: #27c94c;'>Correct answer is:</span><span style='display:inline-block;margin-left; background-color:#a94400; color:white; font-size:28px; width:60px; height:60px; border-radius:10px; text-align:center; line-height:60px;'>3</span> <br/><br/>Count the dragons one by one.<br/><br/></div>",
-        styles: {
-          fontSize: "22px",
-          fontFamily: "Glacial Indifference",
-          color: "#000000",
-          backgroundColor: "transparent",
-          padding: "8px",
-          margin: "4px",
-          borderRadius: "0px",
-          border: "none",
-          boxShadow: "none",
-          textAlign: "left",
-        },
-        attributes: {},
-      },
-      {
-        id: "incorrect_feedback_block_2",
-        type: "image",
-        content:
-          "https://i.postimg.cc/PxdqYCkD/Screenshot-2025-07-28-at-8-04-38-PM.png",
-        styles: {
-          padding: "8px",
-          margin: "4px",
-          borderRadius: "0px",
-          border: "none",
-          boxShadow: "none",
-          width: "450px",
-        },
-        attributes: {
-          alt: "Explanation image",
-          width: "450",
-          height: "300",
-        },
-      },
-      {
-        id: "incorrect_feedback_block_3",
-        type: "text",
-        content:
-          "<div style='font-size: 22px; font-family: Glacial Indifference; color: #000000; padding: 8px; margin: 4px; border-radius: 0px; border: none; box-shadow: none; text-align: left'>There are 3 dragons.</div>",
-        styles: {
-          fontSize: "22px",
-          fontFamily: "Glacial Indifference",
-          color: "#000000",
-          backgroundColor: "transparent",
-          padding: "8px",
-          margin: "4px",
-          borderRadius: "0px",
-          border: "none",
-          boxShadow: "none",
-          textAlign: "left",
-        },
-        attributes: {},
-      },
+      // {
+      //   id: "incorrect_feedback_block_1",
+      //   type: "text",
+      //   content:
+      //     "<div style='font-size: 22px; font-family: Glacial Indifference; padding: 8px; margin: 4px; border-radius: 0px; border: none; boxShadow: none; text-align: left'><span style='font-family: Arial, sans-serif; font-size: 30px; font-weight: bold; color: #FF0000;'>Nice Try!</span><br/><br/><span style='font-family: Arial, sans-serif; font-size: 32px; font-weight: bold; color: #27c94c;'>Correct answer is:</span><span style='display:inline-block;margin-left; background-color:#a94400; color:white; font-size:28px; width:60px; height:60px; border-radius:10px; text-align:center; line-height:60px;'>3</span> <br/><br/>Count the dragons one by one.<br/><br/></div>",
+      //   styles: {
+      //     fontSize: "22px",
+      //     fontFamily: "Glacial Indifference",
+      //     color: "#000000",
+      //     backgroundColor: "transparent",
+      //     padding: "8px",
+      //     margin: "4px",
+      //     borderRadius: "0px",
+      //     border: "none",
+      //     boxShadow: "none",
+      //     textAlign: "left",
+      //   },
+      //   attributes: {},
+      // },
+      // {
+      //   id: "incorrect_feedback_block_2",
+      //   type: "image",
+      //   content:
+      //     "https://i.postimg.cc/PxdqYCkD/Screenshot-2025-07-28-at-8-04-38-PM.png",
+      //   styles: {
+      //     padding: "8px",
+      //     margin: "4px",
+      //     borderRadius: "0px",
+      //     border: "none",
+      //     boxShadow: "none",
+      //     width: "450px",
+      //   },
+      //   attributes: {
+      //     alt: "Explanation image",
+      //     width: "450",
+      //     height: "300",
+      //   },
+      // },
+      // {
+      //   id: "incorrect_feedback_block_3",
+      //   type: "text",
+      //   content:
+      //     "<div style='font-size: 22px; font-family: Glacial Indifference; color: #000000; padding: 8px; margin: 4px; border-radius: 0px; border: none; box-shadow: none; text-align: left'>There are 3 dragons.</div>",
+      //   styles: {
+      //     fontSize: "22px",
+      //     fontFamily: "Glacial Indifference",
+      //     color: "#000000",
+      //     backgroundColor: "transparent",
+      //     padding: "8px",
+      //     margin: "4px",
+      //     borderRadius: "0px",
+      //     border: "none",
+      //     boxShadow: "none",
+      //     textAlign: "left",
+      //   },
+      //   attributes: {},
+      // },
     ],
     maxChoices: 1,
     globalStyles: {
@@ -551,7 +551,7 @@ export default function HottextBuilderPage() {
 
     const typeSpecificStyles = {
       text: {
-        backgroundColor: "#a94400",
+        backgroundColor: "",
         color: "white",
         fontSize: "28px",
         width: "60px",
@@ -715,7 +715,7 @@ export default function HottextBuilderPage() {
       <>
         <AdvancedColorPicker
           label="Background Color"
-          color={item.styles.backgroundColor || "#a94400"}
+          color={item.styles.backgroundColor || "transparent"}
           onChange={(color) =>
             updateHottextStyle(item.identifier, "backgroundColor", color)
           }
@@ -1042,8 +1042,8 @@ export default function HottextBuilderPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen w-full bg-gray-50">
+      <div className="w-[70%] mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Hottext Question Builder
@@ -1053,8 +1053,7 @@ export default function HottextBuilderPage() {
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-8">
-          <div className="space-y-6">
+        <div className="w-full space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Import QTI XML</CardTitle>
@@ -1508,9 +1507,7 @@ export default function HottextBuilderPage() {
               }
               title="Incorrect Answer Feedback"
             />
-          </div>
-
-          <div className="space-y-6">
+               <div className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -1519,8 +1516,7 @@ export default function HottextBuilderPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {question.promptBlocks.length > 0 &&
-                question.hottextItems.length > 0 ? (
+                {question.promptBlocks.length > 0  ? (
                   <div className="space-y-4">
                     {renderPreview()}
                     <div className="text-sm text-gray-600">
@@ -1579,6 +1575,7 @@ export default function HottextBuilderPage() {
           </div>
         </div>
       </div>
+      
     </div>
   );
 }

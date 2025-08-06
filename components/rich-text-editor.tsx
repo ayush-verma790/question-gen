@@ -143,6 +143,7 @@ export function RichTextEditor({
       "strong",
       "em",
       "u",
+      "br",
       "b",
       "i",
       "p",
@@ -295,6 +296,7 @@ export function RichTextEditor({
 
   const formatButtons = [
     { icon: Bold, label: "Bold", action: () => formatText("bold") },
+    // Removed invalid Linebreak icon entry
     { icon: Italic, label: "Italic", action: () => formatText("italic") },
     { icon: Underline, label: "Underline", action: () => formatText("underline") },
     { icon: List, label: "Bullet List", action: () => formatText("insertUnorderedList") },
@@ -325,6 +327,9 @@ export function RichTextEditor({
 
         <Button variant="outline" size="sm" onClick={() => wrapSelection("<h2>", "</h2>")}>
           H2
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => wrapSelection("<br>", "</br>")}>
+          Line Break
         </Button>
 
         <div className="h-4 w-px bg-gray-300 mx-1" />

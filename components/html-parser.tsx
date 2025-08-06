@@ -66,6 +66,7 @@ export function HTMLParser({ onBlocksGenerated }: HTMLParserProps) {
           textDecoration: computedStyle.textDecoration || "none",
           lineHeight: computedStyle.lineHeight || "normal",
           letterSpacing: computedStyle.letterSpacing || "normal",
+          //@ts-ignore
           textTransform: computedStyle.textTransform || "none",
         },
         attributes: {

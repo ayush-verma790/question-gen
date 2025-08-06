@@ -6,260 +6,71 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Eye, Copy, Upload, Code, Image as ImageIcon } from "lucide-react";
+import { Trash2, Plus, Eye, Copy, Upload } from "lucide-react";
 import { XMLViewer } from "@/components/xml-viewer";
 import { Toggle } from "@/components/ui/toggle";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
-
-interface ContentBlock {
-  id: string;
-  type: "text" | "image" | "html";
-  content: string;
-  styles?: Record<string, string>;
-}
 
 interface GapMatchQuestion {
   identifier: string;
   title: string;
-  instructions: ContentBlock[];
-  baseContent: ContentBlock[];
+  instructions: string;
+  baseText: string;
   gaps: {
     id: string;
     position: number;
     isCorrect: boolean;
   }[];
-  gapTexts: ContentBlock[];
+  gapTexts: {
+    id: string;
+    text: string;
+  }[];
   shuffle: boolean;
   maxAssociations: number;
-  correctFeedback: ContentBlock[];
-  incorrectFeedback: ContentBlock[];
-  globalStyles: Record<string, string>;
+  correctFeedback: string;
+  incorrectFeedback: string;
 }
 
 export default function GapMatchBuilder() {
   const [question, setQuestion] = useState<GapMatchQuestion>({
-    identifier: `gap-match-${Date.now()}`,
-    title: "Comma Placement Exercise",
-    instructions: [{
-      id: "instr-1",
-      type: "text",
-      content: "Add commas to correct the sentence. The sentence should have <b>three</b> commas.",
-      styles: { fontSize: "16px", color: "#333" }
-    }],
-    baseContent: [{
-      id: "content-1",
-      type: "text",
-      content: "My sports bag holds a jersey shorts socks and cleats for practice."
-    }],
+    identifier: "gap-match-" + Date.now(),
+    title: "Comma Placement",
+    instructions: "Add commas to correct the sentence. The sentence should have three commas.",
+    baseText: "My sports bag holds a jersey shorts socks and cleats for practice.",
     gaps: [
       { id: "pos6", position: 6, isCorrect: true },
       { id: "pos7", position: 7, isCorrect: true },
       { id: "pos8", position: 8, isCorrect: true }
     ],
-    gapTexts: [{
-      id: "comma",
-      type: "text",
-      content: ",",
-      styles: { fontSize: "18px", fontWeight: "bold" }
-    }],
+    gapTexts: [{ id: "comma", text: "," }],
     shuffle: false,
     maxAssociations: 0,
-    correctFeedback: [{
-      id: "correct-1",
-      type: "text",
-      content: "<strong>Great job!</strong> You placed all commas correctly."
-    }],
-    incorrectFeedback: [{
-      id: "incorrect-1",
-      type: "text",
-      content: "<strong>Try again!</strong> Remember to place commas between list items."
-    }],
-    globalStyles: {
-      fontFamily: "Arial, sans-serif",
-      fontSize: "16px",
-      backgroundColor: "#ffffff",
-      padding: "20px",
-      borderRadius: "8px"
-    }
+    correctFeedback: "<strong>Great job using commas correctly!</strong><br/><br/>...",
+    incorrectFeedback: "<strong>Let's fix the commas together.</strong><br/><br/>..."
   });
 
   const [generatedXML, setGeneratedXML] = useState("");
-  const [activeTab, setActiveTab] = useState<"content" | "gaps" | "feedback" | "styles">("content");
-  const [importXML, setImportXML] = useState("");
-  const [isImporting, setIsImporting] = useState(false);
+  const [editingGapId, setEditingGapId] = useState<string | null>(null);
+  const [newGapPosition, setNewGapPosition] = useState(0);
+  const [activeTab, setActiveTab] = useState<"gaps" | "texts" | "feedback">("gaps");
 
-  // Helper to generate unique IDs
-  const generateId = (prefix: string) => `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-
-  // Parse XML and update state
-  const parseXML = (xmlString: string) => {
-    try {
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(xmlString, "text/xml");
-      
-      // Extract basic info
-      const assessmentItem = xmlDoc.querySelector("qti-assessment-item");
-      const identifier = assessmentItem?.getAttribute("identifier") || generateId("gap-match");
-      const title = assessmentItem?.getAttribute("title") || "Gap Match Question";
-      
-      // Extract instructions
-      const instructions: ContentBlock[] = [];
-      const instructionDiv = xmlDoc.querySelector("qti-item-body > div");
-      if (instructionDiv) {
-        instructions.push({
-          id: generateId("instr"),
-          type: "html",
-          content: instructionDiv.innerHTML,
-          styles: extractStyles(instructionDiv)
-        });
-      }
-      
-      // Extract base content with gaps
-      const baseContent: ContentBlock[] = [];
-      const interaction = xmlDoc.querySelector("qti-gap-match-interaction");
-      const paragraphs = interaction?.querySelectorAll("p");
-      
-      paragraphs?.forEach(p => {
-        baseContent.push({
-          id: generateId("para"),
-          type: "html",
-          content: p.innerHTML,
-          styles: extractStyles(p)
-        });
-      });
-      
-      // Extract gaps
-      const gaps: GapMatchQuestion["gaps"] = [];
-      const gapElements = interaction?.querySelectorAll("qti-gap");
-      gapElements?.forEach((gap, index) => {
-        gaps.push({
-          id: gap.getAttribute("identifier") || `pos${index}`,
-          position: index, // This needs more sophisticated position detection
-          isCorrect: true // Would need to check correct responses
-        });
-      });
-      
-      // Extract gap texts
-      const gapTexts: ContentBlock[] = [];
-      const gapTextElements = interaction?.querySelectorAll("qti-gap-text");
-      gapTextElements?.forEach(gt => {
-        gapTexts.push({
-          id: gt.getAttribute("identifier") || generateId("gap-text"),
-          type: "text",
-          content: gt.textContent || "",
-          styles: extractStyles(gt)
-        });
-      });
-      
-      // Extract feedback
-      const correctFeedback: ContentBlock[] = [];
-      const incorrectFeedback: ContentBlock[] = [];
-      
-      const correctBlock = xmlDoc.querySelector("qti-feedback-block[identifier='CORRECT']");
-      if (correctBlock) {
-        const content = correctBlock.querySelector("qti-content-body");
-        if (content) {
-          correctFeedback.push({
-            id: generateId("feedback"),
-            type: "html",
-            content: content.innerHTML,
-            styles: extractStyles(content)
-          });
-        }
-      }
-      
-      const incorrectBlock = xmlDoc.querySelector("qti-feedback-block[identifier='INCORRECT']");
-      if (incorrectBlock) {
-        const content = incorrectBlock.querySelector("qti-content-body");
-        if (content) {
-          incorrectFeedback.push({
-            id: generateId("feedback"),
-            type: "html",
-            content: content.innerHTML,
-            styles: extractStyles(content)
-          });
-        }
-      }
-      
-      // Update state
-      setQuestion({
-        identifier,
-        title,
-        instructions,
-        baseContent,
-        gaps,
-        gapTexts,
-        shuffle: interaction?.getAttribute("shuffle") === "true",
-        maxAssociations: parseInt(interaction?.getAttribute("max-associations") || "0"),
-        correctFeedback,
-        incorrectFeedback,
-        globalStyles: {
-          fontFamily: "Arial, sans-serif",
-          fontSize: "16px",
-          backgroundColor: "#ffffff",
-          padding: "20px",
-          borderRadius: "8px"
-        }
-      });
-      
-    } catch (error) {
-      console.error("Error parsing XML:", error);
-      alert("Error parsing XML. Please check the format.");
-    }
+  // Helper function to get gap text ID for a gap
+  const getGapTextId = (gapId: string) => {
+    // In this simple implementation, we'll use the first gap text
+    // For more complex cases, you might want to map specific gaps to specific texts
+    return question.gapTexts[0]?.id || "comma";
   };
 
-  // Helper to extract styles from element
-  const extractStyles = (element: Element): Record<string, string> => {
-    const styleAttr = element.getAttribute("style");
-    const styles: Record<string, string> = {};
-    if (styleAttr) {
-      styleAttr.split(";").forEach(style => {
-        const [key, value] = style.split(":").map(s => s.trim());
-        if (key && value) styles[key] = value;
-      });
-    }
-    return styles;
-  };
+  useEffect(() => {
+    generateXML();
+  }, [question]);
 
-  // Generate QTI XML
   const generateXML = () => {
-    // Generate instructions
-    const instructionsHTML = question.instructions
-      .map(i => i.content)
-      .join("");
+    // Split the base text into parts with gaps
+    const words = question.baseText.split(" ");
+    const gapPositions = question.gaps.map(gap => gap.position);
     
-    // Generate base content with gaps
-    let contentWithGaps = "";
-    if (question.baseContent.length > 0) {
-      const firstContent = question.baseContent[0];
-      const words = firstContent.content.split(" ");
-      
-      contentWithGaps = words.map((word, index) => {
-        const gap = question.gaps.find(g => g.position === index);
-        return gap ? `${word}<qti-gap identifier="${gap.id}" />` : `${word} `;
-      }).join("");
-    }
-    
-    // Generate correct responses
-    const correctResponses = question.gaps
-      .filter(g => g.isCorrect)
-      .map(g => `<qti-value>${question.gapTexts[0]?.id || "comma"} ${g.id}</qti-value>`)
-      .join("\n      ");
-    
-    // Generate gap texts
-    const gapTextsXML = question.gapTexts
-      .map(gt => `<qti-gap-text identifier="${gt.id}" match-max="${question.gaps.filter(g => g.isCorrect).length}">${gt.content}</qti-gap-text>`)
-      .join("\n      ");
-    
-    // Generate feedback
-    const correctFeedback = question.correctFeedback
-      .map(f => f.content)
-      .join("");
-    const incorrectFeedback = question.incorrectFeedback
-      .map(f => f.content)
-      .join("");
-    
+    // Generate the XML structure
     const xml = `<?xml version="1.0"?>
 <qti-assessment-item 
   xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0" 
@@ -270,7 +81,7 @@ export default function GapMatchBuilder() {
   
   <qti-response-declaration identifier="RESPONSE" cardinality="multiple" base-type="directedPair">
     <qti-correct-response>
-      ${correctResponses}
+      ${question.gaps.filter(g => g.isCorrect).map(g => `<qti-value>${getGapTextId(g.id)} ${g.id}</qti-value>`).join("\n      ")}
     </qti-correct-response>
   </qti-response-declaration>
   
@@ -278,7 +89,7 @@ export default function GapMatchBuilder() {
   
   <qti-item-body>
     <div>
-      ${instructionsHTML}
+      <h4>${question.instructions}</h4>
     </div>
     
     <qti-gap-match-interaction 
@@ -286,22 +97,29 @@ export default function GapMatchBuilder() {
       shuffle="${question.shuffle}" 
       max-associations="${question.maxAssociations}">
       
-      ${gapTextsXML}
+      ${question.gapTexts.map(gt => 
+        `<qti-gap-text identifier="${gt.id}" match-max="${question.gaps.filter(g => g.isCorrect).length}">${gt.text}</qti-gap-text>`
+      ).join("\n      ")}
       
       <p>
-        ${contentWithGaps}
+        ${words.map((word, index) => {
+          const gap = question.gaps.find(g => g.position === index);
+          return gap 
+            ? `${word}<qti-gap identifier="${gap.id}" />`
+            : `${word} `;
+        }).join("")}
       </p>
     </qti-gap-match-interaction>
     
     <qti-feedback-block outcome-identifier="FEEDBACK" identifier="CORRECT" show-hide="show">
       <qti-content-body>
-        <p>${correctFeedback}</p>
+        <p>${question.correctFeedback}</p>
       </qti-content-body>
     </qti-feedback-block>
     
     <qti-feedback-block outcome-identifier="FEEDBACK" identifier="INCORRECT" show-hide="show">
       <qti-content-body>
-        <p>${incorrectFeedback}</p>
+        <p>${question.incorrectFeedback}</p>
       </qti-content-body>
     </qti-feedback-block>
   </qti-item-body>
@@ -312,405 +130,339 @@ export default function GapMatchBuilder() {
     setGeneratedXML(xml);
   };
 
-  // Add new content block
-  const addContentBlock = (type: "text" | "image" | "html", section: "instructions" | "content" | "correctFeedback" | "incorrectFeedback") => {
-    const newBlock: ContentBlock = {
-      id: generateId("block"),
-      type,
-      content: type === "text" ? "New text content" : 
-               type === "image" ? "https://example.com/image.jpg" : 
-               "<p>New HTML content</p>",
-      styles: {}
-    };
+  // ... rest of the component code remains the same ...
+  const addGap = () => {
+    if (newGapPosition < 0 || newGapPosition >= question.baseText.split(" ").length) return;
     
+    const newId = `pos${question.gaps.length + 1}`;
     setQuestion(prev => ({
       ...prev,
-      [section]: [...prev[section], newBlock]
+      gaps: [...prev.gaps, { id: newId, position: newGapPosition, isCorrect: true }]
+    }));
+    setNewGapPosition(0);
+  };
+
+  const removeGap = (id: string) => {
+    setQuestion(prev => ({
+      ...prev,
+      gaps: prev.gaps.filter(g => g.id !== id)
     }));
   };
 
-  // Update content block
-  const updateContentBlock = (id: string, updates: Partial<ContentBlock>, section: "instructions" | "content" | "correctFeedback" | "incorrectFeedback") => {
+  const toggleCorrect = (id: string) => {
     setQuestion(prev => ({
       ...prev,
-      [section]: prev[section].map(block => 
-        block.id === id ? { ...block, ...updates } : block
+      gaps: prev.gaps.map(g => 
+        g.id === id ? { ...g, isCorrect: !g.isCorrect } : g
       )
     }));
   };
 
-  // Remove content block
-  const removeContentBlock = (id: string, section: "instructions" | "content" | "correctFeedback" | "incorrectFeedback") => {
+  const addGapText = (text: string) => {
+    if (!text.trim()) return;
+    
+    const newId = `gap${question.gapTexts.length + 1}`;
     setQuestion(prev => ({
       ...prev,
-      [section]: prev[section].filter(block => block.id !== id)
+      gapTexts: [...prev.gapTexts, { id: newId, text: text.trim() }]
     }));
   };
 
-  // Handle XML import
-  const handleImport = () => {
-    setIsImporting(true);
-    try {
-      parseXML(importXML);
-      setImportXML("");
-    } catch (error) {
-      console.error("Import failed:", error);
-      alert("Failed to import XML. Please check the format.");
-    } finally {
-      setIsImporting(false);
-    }
+  const removeGapText = (id: string) => {
+    setQuestion(prev => ({
+      ...prev,
+      gapTexts: prev.gapTexts.filter(gt => gt.id !== id)
+    }));
   };
 
-  // Generate XML on changes
-  useEffect(() => {
-    generateXML();
-  }, [question]);
-
-  // Render content editor for a section
-  const renderContentEditor = (section: "instructions" | "content" | "correctFeedback" | "incorrectFeedback") => {
+  const renderPreview = () => {
+    const words = question.baseText.split(" ");
     return (
-      <div className="space-y-4">
-        {question[section].map(block => (
-          <Card key={block.id} className="p-4">
-            <div className="flex justify-between items-start mb-4">
-              <Badge variant="outline" className="capitalize">
-                {block.type}
-              </Badge>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => removeContentBlock(block.id, section)}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-            
-            {block.type === "text" && (
-              <Textarea
-                value={block.content}
-                onChange={(e) => updateContentBlock(block.id, { content: e.target.value }, section)}
-                rows={3}
-              />
-            )}
-            
-            {block.type === "image" && (
-              <div className="space-y-2">
-                <Label>Image URL</Label>
-                <Input
-                  value={block.content}
-                  onChange={(e) => updateContentBlock(block.id, { content: e.target.value }, section)}
-                  placeholder="https://example.com/image.jpg"
-                />
-                {block.content && (
-                  <div className="mt-2">
-                    <img 
-                      src={block.content} 
-                      alt="Preview" 
-                      className="max-w-full h-auto max-h-40 object-contain border rounded"
-                    />
-                  </div>
+      <div className="p-4 border rounded bg-white">
+        <h4 className="text-lg font-medium mb-4">{question.instructions}</h4>
+        <p className="text-lg">
+          {words.map((word, index) => {
+            const gap = question.gaps.find(g => g.position === index);
+            return (
+              <span key={index}>
+                {word}
+                {gap && (
+                  <span className="inline-block mx-1 w-8 h-6 border-b-2 border-gray-400 relative">
+                    <span className="absolute -top-5 left-0 text-xs text-gray-500">
+                      {gap.id}
+                    </span>
+                    {gap.isCorrect && (
+                      <span className="absolute -bottom-5 left-0 text-xs text-green-600">
+                        {question.gapTexts[0]?.text || "[gap]"}
+                      </span>
+                    )}
+                  </span>
                 )}
-              </div>
-            )}
-            
-            {block.type === "html" && (
-              <Textarea
-                value={block.content}
-                onChange={(e) => updateContentBlock(block.id, { content: e.target.value }, section)}
-                rows={6}
-                className="font-mono text-sm"
-              />
-            )}
-            
-            <div className="mt-4">
-              <Label>Custom Styles (CSS)</Label>
-              <Input
-                value={Object.entries(block.styles || {}).map(([k, v]) => `${k}: ${v}`).join("; ")}
-                onChange={(e) => {
-                  const styles = e.target.value.split(";").reduce((acc, style) => {
-                    const [k, v] = style.split(":").map(s => s.trim());
-                    if (k && v) acc[k] = v;
-                    return acc;
-                  }, {} as Record<string, string>);
-                  updateContentBlock(block.id, { styles }, section);
-                }}
-                placeholder="font-size: 16px; color: #333;"
-              />
-            </div>
-          </Card>
-        ))}
-        
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => addContentBlock("text", section)}
-          >
-            <Plus className="w-4 h-4 mr-2" /> Add Text
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => addContentBlock("image", section)}
-          >
-            <ImageIcon className="w-4 h-4 mr-2" /> Add Image
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => addContentBlock("html", section)}
-          >
-            <Code className="w-4 h-4 mr-2" /> Add HTML
-          </Button>
+                {" "}
+              </span>
+            );
+          })}
+        </p>
+        <div className="mt-4">
+          <h5 className="font-medium mb-2">Draggable Items:</h5>
+          <div className="flex gap-2">
+            {question.gapTexts.map(gt => (
+              <Badge key={gt.id} variant="outline" className="px-3 py-1">
+                {gt.text}
+              </Badge>
+            ))}
+          </div>
         </div>
       </div>
     );
   };
 
   return (
-    <div className="min-h-screen w-full bg-gray-50 p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold">Gap Match Question Builder</h1>
+    <div className="min-h-screen w-full bg-gray-50">
+      <div className="w-[70%] mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Gap Match Interaction Builder
+          </h1>
           <p className="text-gray-600">
-            Create interactive gap match questions with full HTML support
+            Create drag-and-drop gap fill questions
           </p>
         </div>
-        
-        {/* Import/Export Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Import/Export</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label>Import QTI XML</Label>
-              <Textarea
-                value={importXML}
-                onChange={(e) => setImportXML(e.target.value)}
-                placeholder="Paste QTI XML here..."
-                rows={6}
-                className="font-mono text-sm"
-              />
-              <div className="mt-2 flex justify-end">
-                <Button onClick={handleImport} disabled={isImporting || !importXML.trim()}>
-                  {isImporting ? "Importing..." : "Import XML"}
-                </Button>
-              </div>
-            </div>
-            
-            {generatedXML && (
+
+        <div className="w-full space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Question Configuration</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div>
-                <Label>Generated QTI XML</Label>
-                <XMLViewer xml={generatedXML} filename={`${question.identifier}.xml`} />
+                <Label>Identifier</Label>
+                <Input
+                  value={question.identifier}
+                  onChange={(e) => 
+                    setQuestion(prev => ({ ...prev, identifier: e.target.value }))
+                  }
+                />
               </div>
-            )}
-          </CardContent>
-        </Card>
-        
-        {/* Main Editor */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Question Editor</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-              <TabsList>
-                <TabsTrigger value="content">Content</TabsTrigger>
-                <TabsTrigger value="gaps">Gaps</TabsTrigger>
-                <TabsTrigger value="feedback">Feedback</TabsTrigger>
-                <TabsTrigger value="styles">Styles</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="content" className="space-y-6">
+              <div>
+                <Label>Title</Label>
+                <Input
+                  value={question.title}
+                  onChange={(e) => 
+                    setQuestion(prev => ({ ...prev, title: e.target.value }))
+                  }
+                />
+              </div>
+              <div>
+                <Label>Instructions</Label>
+                <Input
+                  value={question.instructions}
+                  onChange={(e) => 
+                    setQuestion(prev => ({ ...prev, instructions: e.target.value }))
+                  }
+                />
+              </div>
+              <div>
+                <Label>Base Text</Label>
+                <textarea
+                  value={question.baseText}
+                  onChange={(e) => 
+                    setQuestion(prev => ({ ...prev, baseText: e.target.value }))
+                  }
+                  className="w-full p-2 border rounded"
+                  rows={3}
+                />
+              </div>
+              <div className="flex gap-4">
+                <Toggle
+                  pressed={question.shuffle}
+                  onPressedChange={() => 
+                    setQuestion(prev => ({ ...prev, shuffle: !prev.shuffle }))
+                  }
+                >
+                  Shuffle Gaps
+                </Toggle>
                 <div>
-                  <h3 className="font-medium mb-2">Question Identification</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Identifier</Label>
-                      <Input
-                        value={question.identifier}
-                        onChange={(e) => setQuestion(prev => ({ ...prev, identifier: e.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <Label>Title</Label>
-                      <Input
-                        value={question.title}
-                        onChange={(e) => setQuestion(prev => ({ ...prev, title: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                <div>
-                  <h3 className="font-medium mb-2">Instructions</h3>
-                  {renderContentEditor("instructions")}
-                </div>
-                
-                <div>
-                  <h3 className="font-medium mb-2">Main Content</h3>
-                  {renderContentEditor("content")}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="gaps" className="space-y-6">
-                <div>
-                  <h3 className="font-medium mb-2">Gap Texts (Draggable Items)</h3>
-                  {renderContentEditor("gapTexts")}
-                </div>
-                
-                <div>
-                  <h3 className="font-medium mb-2">Gap Positions</h3>
-                  <div className="space-y-4">
-                    {question.baseContent.length > 0 && (
-                      <div className="p-4 border rounded bg-white">
-                        <h4 className="text-sm font-medium mb-2">Content Preview with Gaps</h4>
-                        <div className="p-2 bg-gray-50 rounded">
-                          {question.baseContent[0].content.split(" ").map((word, index) => {
-                            const gap = question.gaps.find(g => g.position === index);
-                            return (
-                              <span key={index} className="inline-flex items-baseline mx-1">
-                                {word}
-                                {gap && (
-                                  <span className="relative mx-1">
-                                    <span className="inline-block w-6 h-4 border-b-2 border-red-400">
-                                      <span className="absolute -top-4 left-0 text-xs text-red-500">
-                                        {gap.id}
-                                      </span>
-                                    </span>
-                                  </span>
-                                )}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                    
-                    <div className="space-y-2">
-                      <Label>Current Gaps</Label>
-                      {question.gaps.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          {question.gaps.map(gap => (
-                            <div key={gap.id} className="flex items-center p-2 border rounded">
-                              <Badge 
-                                variant={gap.isCorrect ? "default" : "secondary"}
-                                className="mr-2"
-                              >
-                                {gap.id}
-                              </Badge>
-                              <span className="text-sm">
-                                Position: {gap.position} ({question.baseContent[0]?.content.split(" ")[gap.position]})
-                              </span>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="ml-auto"
-                                onClick={() => setQuestion(prev => ({
-                                  ...prev,
-                                  gaps: prev.gaps.filter(g => g.id !== gap.id)
-                                }))}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-gray-500">No gaps defined yet</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="feedback" className="space-y-6">
-                <div>
-                  <h3 className="font-medium mb-2">Correct Answer Feedback</h3>
-                  {renderContentEditor("correctFeedback")}
-                </div>
-                
-                <div>
-                  <h3 className="font-medium mb-2">Incorrect Answer Feedback</h3>
-                  {renderContentEditor("incorrectFeedback")}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="styles" className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Font Family</Label>
-                    <Input
-                      value={question.globalStyles.fontFamily}
-                      onChange={(e) => setQuestion(prev => ({
-                        ...prev,
-                        globalStyles: { ...prev.globalStyles, fontFamily: e.target.value }
-                      }))}
-                    />
-                  </div>
-                  <div>
-                    <Label>Font Size</Label>
-                    <Input
-                      value={question.globalStyles.fontSize}
-                      onChange={(e) => setQuestion(prev => ({
-                        ...prev,
-                        globalStyles: { ...prev.globalStyles, fontSize: e.target.value }
-                      }))}
-                    />
-                  </div>
-                  <div>
-                    <Label>Background Color</Label>
-                    <Input
-                      value={question.globalStyles.backgroundColor}
-                      onChange={(e) => setQuestion(prev => ({
-                        ...prev,
-                        globalStyles: { ...prev.globalStyles, backgroundColor: e.target.value }
-                      }))}
-                    />
-                  </div>
-                  <div>
-                    <Label>Padding</Label>
-                    <Input
-                      value={question.globalStyles.padding}
-                      onChange={(e) => setQuestion(prev => ({
-                        ...prev,
-                        globalStyles: { ...prev.globalStyles, padding: e.target.value }
-                      }))}
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <Label>Custom CSS</Label>
-                  <Textarea
-                    value={Object.entries(question.globalStyles)
-                      .filter(([k]) => !["fontFamily", "fontSize", "backgroundColor", "padding"].includes(k))
-                      .map(([k, v]) => `${k}: ${v}`)
-                      .join(";\n")}
-                    onChange={(e) => {
-                      const newStyles = e.target.value.split(";\n").reduce((acc, line) => {
-                        const [k, v] = line.split(":").map(s => s.trim());
-                        if (k && v) acc[k] = v;
-                        return acc;
-                      }, {} as Record<string, string>);
-                      
-                      setQuestion(prev => ({
-                        ...prev,
-                        globalStyles: {
-                          ...prev.globalStyles,
-                          ...newStyles
-                        }
-                      }));
-                    }}
-                    rows={4}
-                    className="font-mono text-sm"
+                  <Label>Max Associations</Label>
+                  <Input
+                    type="number"
+                    value={question.maxAssociations}
+                    onChange={(e) => 
+                      setQuestion(prev => ({ 
+                        ...prev, 
+                        maxAssociations: parseInt(e.target.value) || 0 
+                      }))
+                    }
+                    className="w-20"
                   />
                 </div>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Gap Configuration</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+                <TabsList>
+                  <TabsTrigger value="gaps">Gap Positions</TabsTrigger>
+                  <TabsTrigger value="texts">Gap Texts</TabsTrigger>
+                  <TabsTrigger value="feedback">Feedback</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="gaps">
+                  <div className="space-y-4">
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        value={newGapPosition}
+                        onChange={(e) => setNewGapPosition(parseInt(e.target.value) || 0)}
+                        min={0}
+                        max={question.baseText.split(" ").length - 1}
+                        placeholder="Word position"
+                        className="w-24"
+                      />
+                      <Button onClick={addGap}>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Gap
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {question.gaps.map(gap => (
+                        <div key={gap.id} className="flex items-center gap-4 p-2 border rounded">
+                          <Badge 
+                            variant={gap.isCorrect ? "default" : "secondary"}
+                            onClick={() => toggleCorrect(gap.id)}
+                            className="cursor-pointer"
+                          >
+                            {gap.id} (pos: {gap.position})
+                          </Badge>
+                          <span>
+                            {question.baseText.split(" ")[gap.position]}
+                          </span>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => removeGap(gap.id)}
+                            className="ml-auto"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="texts">
+                  <div className="space-y-4">
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Text to drag (e.g., ',')"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            addGapText(e.currentTarget.value);
+                            e.currentTarget.value = "";
+                          }
+                        }}
+                        className="flex-1"
+                      />
+                      <Button onClick={() => {
+                        const input = document.querySelector('input[placeholder="Text to drag"]');
+                        if (input) {
+                          addGapText((input as HTMLInputElement).value);
+                          (input as HTMLInputElement).value = "";
+                        }
+                      }}>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Text
+                      </Button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {question.gapTexts.map(gt => (
+                        <Badge 
+                          key={gt.id} 
+                          variant="outline" 
+                          className="px-3 py-1 flex items-center gap-2"
+                        >
+                          {gt.text}
+                          <Trash2 
+                            className="w-3 h-3 cursor-pointer" 
+                            onClick={() => removeGapText(gt.id)}
+                          />
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="feedback">
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Correct Feedback</Label>
+                      <textarea
+                        value={question.correctFeedback}
+                        onChange={(e) => 
+                          setQuestion(prev => ({ 
+                            ...prev, 
+                            correctFeedback: e.target.value 
+                          }))
+                        }
+                        className="w-full p-2 border rounded min-h-32"
+                      />
+                    </div>
+                    <div>
+                      <Label>Incorrect Feedback</Label>
+                      <textarea
+                        value={question.incorrectFeedback}
+                        onChange={(e) => 
+                          setQuestion(prev => ({ 
+                            ...prev, 
+                            incorrectFeedback: e.target.value 
+                          }))
+                        }
+                        className="w-full p-2 border rounded min-h-32"
+                      />
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Eye className="w-5 h-5" />
+                Preview
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {renderPreview()}
+              <div className="mt-4 text-sm text-gray-600">
+                <p>
+                  <strong>Correct gaps:</strong>{" "}
+                  {question.gaps.filter(g => g.isCorrect).map(g => g.id).join(", ") || "None"}
+                </p>
+                <p>
+                  <strong>Draggable texts:</strong>{" "}
+                  {question.gapTexts.map(gt => gt.text).join(", ")}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {generatedXML && (
+            <XMLViewer
+              xml={generatedXML}
+              filename={`${question.identifier}.xml`}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

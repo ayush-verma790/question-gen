@@ -46,6 +46,14 @@ const questionTypes = [
     href: "/builder/text-entry",
     color: "bg-red-500",
   },
+  {
+    id: "gap-match",
+    title: "Gap Match",
+    description: "Gap Match questions with rich content and flexible layouts",
+    icon: Type,
+    href: "/builder/gap-match",
+    color: "bg-red-500",
+  },
 ]
 
 export default function HomePage() {

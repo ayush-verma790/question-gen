@@ -190,7 +190,7 @@ export default function ChoiceBuilderPage() {
       {
         id: "prompt_block_1",
         type: "text",
-        content: "<p>Is this shape a polygon?</p>",
+        content: "Is this shape a polygon?",
         styles: {},
         attributes: {},
       },
@@ -202,7 +202,7 @@ export default function ChoiceBuilderPage() {
           {
             id: "option_1_block",
             type: "text",
-            content: "<p>Yes</p>",
+            content: "Yes",
             styles: {},
             attributes: {},
           },
@@ -216,7 +216,7 @@ export default function ChoiceBuilderPage() {
           {
             id: "option_2_block",
             type: "text",
-            content: "<p>No</p>",
+            content: "No",
             styles: {},
             attributes: {},
           },
@@ -230,7 +230,7 @@ export default function ChoiceBuilderPage() {
         id: "correct_feedback_block",
         type: "text",
         content:
-          "<p><strong>Correct!</strong> Well done. This shape is closed and has only straight sides, so it is a polygon.</p>",
+          "Correct! Well done. This shape is closed and has only straight sides, so it is a polygon.",
         styles: {},
         attributes: {},
       },
@@ -240,7 +240,7 @@ export default function ChoiceBuilderPage() {
         id: "incorrect_feedback_block",
         type: "text",
         content:
-          "<p><strong>Not quite.</strong> This shape is closed and has only straight sides, so it is a polygon.</p>",
+          "Not quite. This shape is closed and has only straight sides, so it is a polygon.",
         styles: {},
         attributes: {},
       },

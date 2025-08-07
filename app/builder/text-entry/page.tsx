@@ -756,7 +756,7 @@ export default function TextEntryBuilderPage() {
             {
               id: boxId,
               responseId: newId,
-              expectedLength: 20,
+              expectedLength: 4,
               widthClass: defaultWidthClass,
             },
           ],

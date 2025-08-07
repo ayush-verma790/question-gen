@@ -1,6 +1,6 @@
 export interface ContentBlock {
   id: string
-  type: "text" | "image" | "video" | "audio" | "html"
+  type: "text" | "image" | "video" | "audio" | "html" | "textEntry"
   content: string
   styles: {
     fontSize?: string

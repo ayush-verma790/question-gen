@@ -21,16 +21,18 @@ interface ContentBlock {
   styles?: Record<string, string>;
 }
 
+interface Gap {
+  id: string;
+  position: number;
+  isCorrect: boolean;
+}
+
 interface GapMatchQuestion {
   identifier: string;
   title: string;
   instructions: ContentBlock[];
   baseContent: ContentBlock[];
-  gaps: {
-    id: string;
-    position: number;
-    isCorrect: boolean;
-  }[];
+  gaps: Gap[];
   gapTexts: ContentBlock[];
   shuffle: boolean;
   maxAssociations: number;
@@ -117,27 +119,6 @@ export default function GapMatchBuilder() {
     styles: true
   });
 
-  // Add predefined button to gapTexts
-  const addPredefinedButton = (content: string) => {
-    const newBlock: ContentBlock = {
-      id: generateId("gap-text"),
-      type: "button",
-      content,
-      styles: { 
-        fontSize: "18px", 
-        fontWeight: "bold",
-        padding: "8px 16px",
-        borderRadius: "4px",
-        backgroundColor: "#e2e8f0",
-        border: "1px solid #cbd5e1"
-      }
-    };
-    setQuestion(prev => ({
-      ...prev,
-      gapTexts: [...prev.gapTexts, newBlock]
-    }));
-  };
-
   const togglePanel = (panel: keyof typeof expandedPanels) => {
     setExpandedPanels(prev => ({
       ...prev,
@@ -146,211 +127,6 @@ export default function GapMatchBuilder() {
   };
 
   const generateId = (prefix: string) => `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-
-  const extractStyles = (element: Element): Record<string, string> => {
-    const styleAttr = element.getAttribute("style");
-    const styles: Record<string, string> = {};
-    if (styleAttr) {
-      styleAttr.split(";").forEach(style => {
-        const [key, value] = style.split(":").map(s => s.trim());
-        if (key && value) styles[key] = value;
-      });
-    }
-    return styles;
-  };
-
-  const parseXML = (xmlString: string) => {
-    try {
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(xmlString, "text/xml");
-      
-      const assessmentItem = xmlDoc.querySelector("qti-assessment-item");
-      const identifier = assessmentItem?.getAttribute("identifier") || generateId("gap-match");
-      const title = assessmentItem?.getAttribute("title") || "Gap Match Question";
-      
-      const instructions: ContentBlock[] = [];
-      const instructionDiv = xmlDoc.querySelector("qti-item-body > div");
-      if (instructionDiv) {
-        instructions.push({
-          id: generateId("instr"),
-          type: "html",
-          content: instructionDiv.innerHTML,
-          styles: extractStyles(instructionDiv)
-        });
-      }
-      
-      const baseContent: ContentBlock[] = [];
-      const interaction = xmlDoc.querySelector("qti-gap-match-interaction");
-      const paragraphs = interaction?.querySelectorAll("p");
-      
-      paragraphs?.forEach(p => {
-        baseContent.push({
-          id: generateId("para"),
-          type: "html",
-          content: p.innerHTML,
-          styles: extractStyles(p)
-        });
-      });
-      
-      const gaps: GapMatchQuestion["gaps"] = [];
-      const gapElements = interaction?.querySelectorAll("qti-gap");
-      gapElements?.forEach((gap, index) => {
-        gaps.push({
-          id: gap.getAttribute("identifier") || `pos${index}`,
-          position: index,
-          isCorrect: true
-        });
-      });
-      
-      const gapTexts: ContentBlock[] = [];
-      const gapTextElements = interaction?.querySelectorAll("qti-gap-text");
-      gapTextElements?.forEach(gt => {
-        gapTexts.push({
-          id: gt.getAttribute("identifier") || generateId("gap-text"),
-          type: "text",
-          content: gt.textContent || "",
-          styles: extractStyles(gt)
-        });
-      });
-      
-      const correctFeedback: ContentBlock[] = [];
-      const incorrectFeedback: ContentBlock[] = [];
-      
-      const correctBlock = xmlDoc.querySelector("qti-feedback-block[identifier='CORRECT']");
-      if (correctBlock) {
-        const content = correctBlock.querySelector("qti-content-body");
-        if (content) {
-          correctFeedback.push({
-            id: generateId("feedback"),
-            type: "html",
-            content: content.innerHTML,
-            styles: extractStyles(content)
-          });
-        }
-      }
-      
-      const incorrectBlock = xmlDoc.querySelector("qti-feedback-block[identifier='INCORRECT']");
-      if (incorrectBlock) {
-        const content = incorrectBlock.querySelector("qti-content-body");
-        if (content) {
-          incorrectFeedback.push({
-            id: generateId("feedback"),
-            type: "html",
-            content: content.innerHTML,
-            styles: extractStyles(content)
-          });
-        }
-      }
-      
-      setQuestion({
-        identifier,
-        title,
-        instructions,
-        baseContent,
-        gaps,
-        gapTexts,
-        shuffle: interaction?.getAttribute("shuffle") === "true",
-        maxAssociations: parseInt(interaction?.getAttribute("max-associations") || "0"),
-        correctFeedback,
-        incorrectFeedback,
-        globalStyles: {
-          fontFamily: "Arial, sans-serif",
-          fontSize: "16px",
-          backgroundColor: "#ffffff",
-          padding: "20px",
-          borderRadius: "8px"
-        }
-      });
-      
-    } catch (error) {
-      console.error("Error parsing XML:", error);
-      alert("Error parsing XML. Please check the format.");
-    }
-  };
-
-  const generateXML = () => {
-    const instructionsHTML = question.instructions
-      .map(i => i.content)
-      .join("");
-    
-    let contentWithGaps = "";
-    if (question.baseContent.length > 0) {
-      const firstContent = question.baseContent[0];
-      const words = firstContent.content.split(" ");
-      
-      contentWithGaps = words.map((word, index) => {
-        const gap = question.gaps.find(g => g.position === index);
-        return gap ? `${word}<qti-gap identifier="${gap.id}" />` : `${word} `;
-      }).join("");
-    }
-    
-    const correctResponses = question.gaps
-      .filter(g => g.isCorrect)
-      .map(g => `<qti-value>${question.gapTexts[0]?.id || "comma"} ${g.id}</qti-value>`)
-      .join("\n      ");
-    
-    const gapTextsXML = question.gapTexts
-      .map(gt => `<qti-gap-text identifier="${gt.id}" match-max="${question.gaps.filter(g => g.isCorrect).length}">${gt.content}</qti-gap-text>`)
-      .join("\n      ");
-    
-    const correctFeedback = question.correctFeedback
-      .map(f => f.content)
-      .join("");
-    const incorrectFeedback = question.incorrectFeedback
-      .map(f => f.content)
-      .join("");
-    
-    const xml = `<?xml version="1.0"?>
-<qti-assessment-item 
-  xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0" 
-  identifier="${question.identifier}" 
-  title="${question.title}" 
-  time-dependent="false" 
-  xml:lang="en-US">
-  
-  <qti-response-declaration identifier="RESPONSE" cardinality="multiple" base-type="directedPair">
-    <qti-correct-response>
-      ${correctResponses}
-    </qti-correct-response>
-  </qti-response-declaration>
-  
-  <qti-outcome-declaration identifier="FEEDBACK" cardinality="single" base-type="identifier"/>
-  
-  <qti-item-body>
-    <div>
-      ${instructionsHTML}
-    </div>
-    
-    <qti-gap-match-interaction 
-      response-identifier="RESPONSE" 
-      shuffle="${question.shuffle}" 
-      max-associations="${question.maxAssociations}">
-      
-      ${gapTextsXML}
-      
-      <p>
-        ${contentWithGaps}
-      </p>
-    </qti-gap-match-interaction>
-    
-    <qti-feedback-block outcome-identifier="FEEDBACK" identifier="CORRECT" show-hide="show">
-      <qti-content-body>
-        <p>${correctFeedback}</p>
-      </qti-content-body>
-    </qti-feedback-block>
-    
-    <qti-feedback-block outcome-identifier="FEEDBACK" identifier="INCORRECT" show-hide="show">
-      <qti-content-body>
-        <p>${incorrectFeedback}</p>
-      </qti-content-body>
-    </qti-feedback-block>
-  </qti-item-body>
-  
-  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/match_correct.xml"/>
-</qti-assessment-item>`;
-
-    setGeneratedXML(xml);
-  };
 
   const addContentBlock = (type: "text" | "image" | "html" | "button", section: keyof Pick<GapMatchQuestion, 'instructions' | 'baseContent' | 'correctFeedback' | 'incorrectFeedback' | 'gapTexts'>) => {
     const newBlock: ContentBlock = {
@@ -392,38 +168,137 @@ export default function GapMatchBuilder() {
     }));
   };
 
-  const handleImport = () => {
-    setIsImporting(true);
-    try {
-      parseXML(importXML);
-      setImportXML("");
-    } catch (error) {
-      console.error("Import failed:", error);
-      alert("Failed to import XML. Please check the format.");
-    } finally {
-      setIsImporting(false);
-    }
+  const addGap = () => {
+    const newGap = {
+      id: generateId("gap"),
+      position: 0,
+      isCorrect: true
+    };
+    
+    setQuestion(prev => ({
+      ...prev,
+      gaps: [...prev.gaps, newGap]
+    }));
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const updateGap = (id: string, updates: Partial<Gap>) => {
+    setQuestion(prev => ({
+      ...prev,
+      gaps: prev.gaps.map(gap => 
+        gap.id === id ? { ...gap, ...updates } : gap
+      )
+    }));
+  };
 
-    setIsImporting(true);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string;
-        parseXML(content);
-      } catch (error) {
-        console.error("Error parsing XML:", error);
-        alert("Error parsing XML file. Please check the format.");
-      } finally {
-        setIsImporting(false);
-        if (event.target) event.target.value = "";
+  const removeGap = (id: string) => {
+    setQuestion(prev => ({
+      ...prev,
+      gaps: prev.gaps.filter(gap => gap.id !== id)
+    }));
+  };
+
+  const generateXML = () => {
+    const instructionsHTML = question.instructions
+      .map(i => {
+        if (i.type === "image") return `<img src="${i.content}" style="${styleToString(i.styles)}" />`;
+        if (i.type === "html") return i.content;
+        return `<span style="${styleToString(i.styles)}">${i.content}</span>`;
+      })
+      .join("");
+    
+    let contentWithGaps = "";
+    if (question.baseContent.length > 0) {
+      if (question.baseContent[0].type === "text") {
+        const words = question.baseContent[0].content.split(" ");
+        contentWithGaps = words.map((word, index) => {
+          const gap = question.gaps.find(g => g.position === index);
+          return gap ? `${word}<qti-gap identifier="${gap.id}" />` : `${word} `;
+        }).join("");
+      } else {
+        contentWithGaps = question.baseContent[0].content;
       }
-    };
-    reader.readAsText(file);
+    }
+    
+    const correctResponses = question.gaps
+      .filter(g => g.isCorrect)
+      .map(g => `<qti-value>${question.gapTexts[0]?.id || "comma"} ${g.id}</qti-value>`)
+      .join("\n      ");
+    
+    const gapTextsXML = question.gapTexts
+      .map(gt => `<qti-gap-text identifier="${gt.id}" match-max="${question.gaps.filter(g => g.isCorrect).length}">${gt.content}</qti-gap-text>`)
+      .join("\n      ");
+    
+    const correctFeedback = question.correctFeedback
+      .map(f => {
+        if (f.type === "image") return `<img src="${f.content}" style="${styleToString(f.styles)}" />`;
+        if (f.type === "html") return f.content;
+        return `<span style="${styleToString(f.styles)}">${f.content}</span>`;
+      })
+      .join("");
+    
+    const incorrectFeedback = question.incorrectFeedback
+      .map(f => {
+        if (f.type === "image") return `<img src="${f.content}" style="${styleToString(f.styles)}" />`;
+        if (f.type === "html") return f.content;
+        return `<span style="${styleToString(f.styles)}">${f.content}</span>`;
+      })
+      .join("");
+    
+    const xml = `<?xml version="1.0"?>
+<qti-assessment-item 
+  xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0" 
+  identifier="${question.identifier}" 
+  title="${question.title}" 
+  time-dependent="false" 
+  xml:lang="en-US">
+  
+  <qti-response-declaration identifier="RESPONSE" cardinality="multiple" base-type="directedPair">
+    <qti-correct-response>
+      ${correctResponses}
+    </qti-correct-response>
+  </qti-response-declaration>
+  
+  <qti-outcome-declaration identifier="FEEDBACK" cardinality="single" base-type="identifier"/>
+  
+  <qti-item-body>
+    <div>
+      ${instructionsHTML}
+    </div>
+    
+    <qti-gap-match-interaction 
+      response-identifier="RESPONSE" 
+      shuffle="${question.shuffle}" 
+      max-associations="${question.maxAssociations}">
+      
+      ${gapTextsXML}
+      
+      <p>
+        ${contentWithGaps}
+      </p>
+    </qti-gap-match-interaction>
+    
+    <qti-feedback-block outcome-identifier="FEEDBACK" identifier="CORRECT" show-hide="show">
+      <qti-content-body>
+        ${correctFeedback}
+      </qti-content-body>
+    </qti-feedback-block>
+    
+    <qti-feedback-block outcome-identifier="FEEDBACK" identifier="INCORRECT" show-hide="show">
+      <qti-content-body>
+        ${incorrectFeedback}
+      </qti-content-body>
+    </qti-feedback-block>
+  </qti-item-body>
+  
+  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/match_correct.xml"/>
+</qti-assessment-item>`;
+
+    setGeneratedXML(xml);
+  };
+
+  const styleToString = (styles?: Record<string, string>) => {
+    if (!styles) return "";
+    return Object.entries(styles).map(([k, v]) => `${k}:${v}`).join(";");
   };
 
   const RichTextEditor = ({ content, onChange }: { content: string, onChange: (value: string) => void }) => {
@@ -533,7 +408,25 @@ export default function GapMatchBuilder() {
                   key={index}
                   variant="outline"
                   size="sm"
-                  onClick={() => addPredefinedButton(btn.content)}
+                  onClick={() => {
+                    const newBlock: ContentBlock = {
+                      id: generateId("gap-text"),
+                      type: "button",
+                      content: btn.content,
+                      styles: { 
+                        fontSize: "18px", 
+                        fontWeight: "bold",
+                        padding: "8px 16px",
+                        borderRadius: "4px",
+                        backgroundColor: "#e2e8f0",
+                        border: "1px solid #cbd5e1"
+                      }
+                    };
+                    setQuestion(prev => ({
+                      ...prev,
+                      gapTexts: [...prev.gapTexts, newBlock]
+                    }));
+                  }}
                 >
                   {btn.label}
                 </Button>
@@ -578,6 +471,7 @@ export default function GapMatchBuilder() {
                       src={block.content} 
                       alt="Preview" 
                       className="max-w-full h-auto max-h-40 object-contain border rounded"
+                      style={block.styles}
                     />
                   </div>
                 )}
@@ -680,6 +574,92 @@ export default function GapMatchBuilder() {
     );
   };
 
+  const renderGapPositions = () => {
+    return (
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label>Gap Positions</Label>
+          <div className="space-y-2">
+            {question.gaps.map(gap => (
+              <div key={gap.id} className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  value={gap.position}
+                  onChange={(e) => updateGap(gap.id, { position: parseInt(e.target.value) || 0 })}
+                  className="w-20"
+                  placeholder="Position"
+                />
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => removeGap(gap.id)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={addGap}
+          >
+            <Plus className="w-4 h-4 mr-2" /> Add Gap Position
+          </Button>
+        </div>
+
+        {question.baseContent.length > 0 && question.baseContent[0].type === "text" && (
+          <div className="p-4 border rounded bg-white">
+            <h4 className="text-sm font-medium mb-2">Content Preview with Gaps</h4>
+            <div className="p-2 bg-gray-50 rounded">
+              {question.baseContent[0].content.split(" ").map((word, index) => {
+                const gap = question.gaps.find(g => g.position === index);
+                return (
+                  <span key={index} className="inline-flex items-baseline mx-1">
+                    {word}
+                    {gap && (
+                      <span className="relative mx-1">
+                        <span className="inline-block w-6 h-4 border-b-2 border-red-400">
+                          <span className="absolute -top-4 left-0 text-xs text-red-500">
+                            {gap.id}
+                          </span>
+                        </span>
+                      </span>
+                    )}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label>Shuffle Gaps</Label>
+            <Toggle
+              pressed={question.shuffle}
+              onPressedChange={() => setQuestion(prev => ({ ...prev, shuffle: !prev.shuffle }))}
+              className="w-full"
+            >
+              {question.shuffle ? "Enabled" : "Disabled"}
+            </Toggle>
+          </div>
+          <div>
+            <Label>Max Associations</Label>
+            <Input
+              type="number"
+              value={question.maxAssociations}
+              onChange={(e) => setQuestion(prev => ({ 
+                ...prev, 
+                maxAssociations: parseInt(e.target.value) || 0 
+              }))}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   useEffect(() => {
     generateXML();
   }, [question]);
@@ -690,7 +670,7 @@ export default function GapMatchBuilder() {
         <div className="space-y-2">
           <h1 className="text-3xl font-bold">Gap Match Question Builder</h1>
           <p className="text-gray-600">
-            Create interactive gap match questions with rich text editing
+            Create interactive gap match questions with mixed content types
           </p>
         </div>
         
@@ -712,22 +692,23 @@ export default function GapMatchBuilder() {
                 className="font-mono text-sm"
               />
               <div className="mt-2 flex justify-between">
-                <Label htmlFor="xml-upload" className="cursor-pointer">
-                  <Button variant="outline" disabled={isImporting}>
-                    <Upload className="w-4 h-4 mr-2" />
-                    {isImporting ? "Importing..." : "Upload XML File"}
-                  </Button>
-                </Label>
-                <Input
-                  id="xml-upload"
-                  type="file"
-                  accept=".xml"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                  disabled={isImporting}
-                />
                 <Button 
-                  onClick={handleImport} 
+                  onClick={() => {
+                    try {
+                      setIsImporting(true);
+                      const parser = new DOMParser();
+                      const xmlDoc = parser.parseFromString(importXML, "text/xml");
+                      // Basic validation
+                      if (xmlDoc.querySelector("parsererror")) {
+                        throw new Error("Invalid XML format");
+                      }
+                      setImportXML("");
+                    } catch (error) {
+                      alert("Error parsing XML. Please check the format.");
+                    } finally {
+                      setIsImporting(false);
+                    }
+                  }} 
                   disabled={isImporting || !importXML.trim()}
                 >
                   {isImporting ? "Importing..." : "Import XML"}
@@ -826,56 +807,7 @@ export default function GapMatchBuilder() {
                 
                 <div>
                   <h3 className="font-medium mb-2">Gap Positions</h3>
-                  <div className="space-y-4">
-                    {question.baseContent.length > 0 && (
-                      <div className="p-4 border rounded bg-white">
-                        <h4 className="text-sm font-medium mb-2">Content Preview with Gaps</h4>
-                        <div className="p-2 bg-gray-50 rounded">
-                          {question.baseContent[0].content.split(" ").map((word, index) => {
-                            const gap = question.gaps.find(g => g.position === index);
-                            return (
-                              <span key={index} className="inline-flex items-baseline mx-1">
-                                {word}
-                                {gap && (
-                                  <span className="relative mx-1">
-                                    <span className="inline-block w-6 h-4 border-b-2 border-red-400">
-                                      <span className="absolute -top-4 left-0 text-xs text-red-500">
-                                        {gap.id}
-                                      </span>
-                                    </span>
-                                  </span>
-                                )}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Shuffle Gaps</Label>
-                        <Toggle
-                          pressed={question.shuffle}
-                          onPressedChange={() => setQuestion(prev => ({ ...prev, shuffle: !prev.shuffle }))}
-                          className="w-full"
-                        >
-                          {question.shuffle ? "Enabled" : "Disabled"}
-                        </Toggle>
-                      </div>
-                      <div>
-                        <Label>Max Associations</Label>
-                        <Input
-                          type="number"
-                          value={question.maxAssociations}
-                          onChange={(e) => setQuestion(prev => ({ 
-                            ...prev, 
-                            maxAssociations: parseInt(e.target.value) || 0 
-                          }))}
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  {renderGapPositions()}
                 </div>
               </TabsContent>
               

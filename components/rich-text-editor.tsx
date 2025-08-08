@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import { useState, useRef, useCallback, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
+import { useState, useRef, useCallback, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Bold,
   Italic,
@@ -14,18 +14,28 @@ import {
   ImageIcon,
   Video,
   Music,
-} from "lucide-react"
-import { AdvancedColorPicker } from "@/components/advanced-color-picker"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
+} from "lucide-react";
+import { AdvancedColorPicker } from "@/components/advanced-color-picker";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 interface RichTextEditorProps {
-  value: string
-  onChange: (value: string) => void
-  placeholder?: string
-  className?: string
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  className?: string;
 }
 
 export function RichTextEditor({
@@ -34,109 +44,121 @@ export function RichTextEditor({
   placeholder = "Enter text...",
   className = "",
 }: RichTextEditorProps) {
-  const [isHtmlMode, setIsHtmlMode] = useState(false)
-  const [selectedText, setSelectedText] = useState("")
-  const [selectionStart, setSelectionStart] = useState(0)
-  const [selectionEnd, setSelectionEnd] = useState(0)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const editorRef = useRef<HTMLDivElement>(null)
+  const [isHtmlMode, setIsHtmlMode] = useState(false);
+  const [selectedText, setSelectedText] = useState("");
+  const [selectionStart, setSelectionStart] = useState(0);
+  const [selectionEnd, setSelectionEnd] = useState(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== value) {
-      editorRef.current.innerHTML = value
+      editorRef.current.innerHTML = value;
     }
-  }, [value])
+  }, [value]);
 
   const handleSelection = useCallback(() => {
     if (textareaRef.current) {
-      const start = textareaRef.current.selectionStart
-      const end = textareaRef.current.selectionEnd
-      const selected = value.substring(start, end)
+      const start = textareaRef.current.selectionStart;
+      const end = textareaRef.current.selectionEnd;
+      const selected = value.substring(start, end);
 
-      setSelectedText(selected)
-      setSelectionStart(start)
-      setSelectionEnd(end)
+      setSelectedText(selected);
+      setSelectionStart(start);
+      setSelectionEnd(end);
     }
-  }, [value])
+  }, [value]);
 
   const wrapSelection = useCallback(
     (openTag: string, closeTag = "") => {
-      if (!textareaRef.current) return
+      if (!textareaRef.current) return;
 
-      const start = textareaRef.current.selectionStart
-      const end = textareaRef.current.selectionEnd
-      const selectedText = value.substring(start, end)
+      const start = textareaRef.current.selectionStart;
+      const end = textareaRef.current.selectionEnd;
+      const selectedText = value.substring(start, end);
 
       if (selectedText) {
-        const newText = value.substring(0, start) + openTag + selectedText + closeTag + value.substring(end)
-        onChange(newText)
+        const newText =
+          value.substring(0, start) +
+          openTag +
+          selectedText +
+          closeTag +
+          value.substring(end);
+        onChange(newText);
 
         setTimeout(() => {
           if (textareaRef.current) {
-            textareaRef.current.focus()
-            textareaRef.current.setSelectionRange(start + openTag.length, end + openTag.length)
+            textareaRef.current.focus();
+            textareaRef.current.setSelectionRange(
+              start + openTag.length,
+              end + openTag.length
+            );
           }
-        }, 0)
+        }, 0);
       } else {
-        const newText = value.substring(0, start) + openTag + closeTag + value.substring(end)
-        onChange(newText)
+        const newText =
+          value.substring(0, start) + openTag + closeTag + value.substring(end);
+        onChange(newText);
 
         setTimeout(() => {
           if (textareaRef.current) {
-            textareaRef.current.focus()
-            textareaRef.current.setSelectionRange(start + openTag.length, start + openTag.length)
+            textareaRef.current.focus();
+            textareaRef.current.setSelectionRange(
+              start + openTag.length,
+              start + openTag.length
+            );
           }
-        }, 0)
+        }, 0);
       }
     },
-    [value, onChange],
-  )
+    [value, onChange]
+  );
 
   const applyInlineStyle = useCallback(
     (property: string, propertyValue: string) => {
-      if (!selectedText) return
+      if (!selectedText) return;
 
-      const styleTag = `<span style="${property}: ${propertyValue};">`
-      wrapSelection(styleTag, "</span>")
+      const styleTag = `<span style="${property}: ${propertyValue};">`;
+      wrapSelection(styleTag, "</span>");
     },
-    [selectedText, wrapSelection],
-  )
+    [selectedText, wrapSelection]
+  );
 
   const handlePasteWithFormatting = useCallback(async () => {
     try {
-      const clipboardData = await navigator.clipboard.read()
+      const clipboardData = await navigator.clipboard.read();
 
       for (const item of clipboardData) {
         if (item.types.includes("text/html")) {
-          const htmlBlob = await item.getType("text/html")
-          const html = await htmlBlob.text()
-          const cleanedHTML = cleanPasteHTML(html)
-          insertAtCursor(cleanedHTML)
-          return
+          const htmlBlob = await item.getType("text/html");
+          const html = await htmlBlob.text();
+          const cleanedHTML = cleanPasteHTML(html);
+          insertAtCursor(cleanedHTML);
+          return;
         }
 
         if (item.types.includes("text/plain")) {
-          const textBlob = await item.getType("text/plain")
-          const text = await textBlob.text()
-          insertAtCursor(text)
-          return
+          const textBlob = await item.getType("text/plain");
+          const text = await textBlob.text();
+          insertAtCursor(text);
+          return;
         }
       }
     } catch (error) {
-      console.error("Error pasting with formatting:", error)
+      console.error("Error pasting with formatting:", error);
       // Fallback to regular paste
       try {
-        const text = await navigator.clipboard.readText()
-        insertAtCursor(text)
+        const text = await navigator.clipboard.readText();
+        insertAtCursor(text);
       } catch (fallbackError) {
-        console.error("Fallback paste also failed:", fallbackError)
+        console.error("Fallback paste also failed:", fallbackError);
       }
     }
-  }, [])
+  }, []);
 
   const cleanPasteHTML = (html: string): string => {
-    const tempDiv = document.createElement("div")
-    tempDiv.innerHTML = html
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = html;
 
     const allowedTags = [
       "span",
@@ -160,7 +182,7 @@ export function RichTextEditor({
       "li",
       "img",
       "a",
-    ]
+    ];
     const allowedStyles = [
       "color",
       "background-color",
@@ -180,160 +202,202 @@ export function RichTextEditor({
       "box-shadow",
       "width",
       "height",
-    ]
+    ];
 
     const cleanElement = (element: Element): string => {
-      const tagName = element.tagName.toLowerCase()
+      const tagName = element.tagName.toLowerCase();
 
       if (!allowedTags.includes(tagName)) {
-        return element.textContent || ""
+        return element.textContent || "";
       }
 
-      let result = `<${tagName}`
+      let result = `<${tagName}`;
 
       // Preserve allowed inline styles
-      const style = element.getAttribute("style")
+      const style = element.getAttribute("style");
       if (style) {
         const cleanedStyles = style
           .split(";")
           .filter((styleRule) => {
-            const property = styleRule.split(":")[0]?.trim()
-            return allowedStyles.includes(property)
+            const property = styleRule.split(":")[0]?.trim();
+            return allowedStyles.includes(property);
           })
-          .join(";")
+          .join(";");
 
         if (cleanedStyles) {
-          result += ` style="${cleanedStyles}"`
+          result += ` style="${cleanedStyles}"`;
         }
       }
 
       // Preserve certain attributes
       if (tagName === "img") {
-        const src = element.getAttribute("src")
-        const alt = element.getAttribute("alt")
-        const width = element.getAttribute("width")
-        const height = element.getAttribute("height")
+        const src = element.getAttribute("src");
+        const alt = element.getAttribute("alt");
+        const width = element.getAttribute("width");
+        const height = element.getAttribute("height");
 
-        if (src) result += ` src="${src}"`
-        if (alt) result += ` alt="${alt}"`
-        if (width) result += ` width="${width}"`
-        if (height) result += ` height="${height}"`
+        if (src) result += ` src="${src}"`;
+        if (alt) result += ` alt="${alt}"`;
+        if (width) result += ` width="${width}"`;
+        if (height) result += ` height="${height}"`;
       }
 
       if (tagName === "a") {
-        const href = element.getAttribute("href")
-        if (href) result += ` href="${href}"`
+        const href = element.getAttribute("href");
+        if (href) result += ` href="${href}"`;
       }
 
-      result += ">"
+      result += ">";
 
       // Process children
       Array.from(element.children).forEach((child) => {
-        result += cleanElement(child)
-      })
+        result += cleanElement(child);
+      });
 
       // Add text nodes
-      const textNodes = Array.from(element.childNodes).filter((node) => node.nodeType === Node.TEXT_NODE)
+      const textNodes = Array.from(element.childNodes).filter(
+        (node) => node.nodeType === Node.TEXT_NODE
+      );
       textNodes.forEach((node) => {
-        result += node.textContent
-      })
+        result += node.textContent;
+      });
 
-      result += `</${tagName}>`
-      return result
-    }
+      result += `</${tagName}>`;
+      return result;
+    };
 
-    return cleanElement(tempDiv)
-  }
+    return cleanElement(tempDiv);
+  };
 
   const insertAtCursor = useCallback(
     (text: string) => {
-      if (!textareaRef.current) return
+      if (!textareaRef.current) return;
 
-      const start = textareaRef.current.selectionStart
-      const end = textareaRef.current.selectionEnd
-      const newText = value.substring(0, start) + text + value.substring(end)
+      const start = textareaRef.current.selectionStart;
+      const end = textareaRef.current.selectionEnd;
+      const newText = value.substring(0, start) + text + value.substring(end);
 
-      onChange(newText)
+      onChange(newText);
 
       setTimeout(() => {
         if (textareaRef.current) {
-          textareaRef.current.focus()
-          textareaRef.current.setSelectionRange(start + text.length, start + text.length)
+          textareaRef.current.focus();
+          textareaRef.current.setSelectionRange(
+            start + text.length,
+            start + text.length
+          );
         }
-      }, 0)
+      }, 0);
     },
-    [value, onChange],
-  )
+    [value, onChange]
+  );
 
   const insertMedia = useCallback(
     (type: "image" | "video" | "audio", url: string) => {
-      let mediaTag = ""
+      let mediaTag = "";
       switch (type) {
         case "image":
-          mediaTag = `<img src="${url}" alt="Image" style="max-width: 100%; height: auto;" />`
-          break
+          mediaTag = `<img src="${url}" alt="Image" style="max-width: 100%; height: auto;" />`;
+          break;
         case "video":
-          mediaTag = `<video src="${url}" controls style="max-width: 100%; height: auto;"></video>`
-          break
+          mediaTag = `<video src="${url}" controls style="max-width: 100%; height: auto;"></video>`;
+          break;
         case "audio":
-          mediaTag = `<audio src="${url}" controls></audio>`
-          break
+          mediaTag = `<audio src="${url}" controls></audio>`;
+          break;
       }
-      insertAtCursor(mediaTag)
+      insertAtCursor(mediaTag);
     },
-    [insertAtCursor],
-  )
+    [insertAtCursor]
+  );
 
   const formatText = useCallback(
     (command: string, value?: string) => {
-      document.execCommand(command, false, value)
+      document.execCommand(command, false, value);
       if (editorRef.current) {
-        onChange(editorRef.current.innerHTML)
+        onChange(editorRef.current.innerHTML);
       }
     },
-    [onChange],
-  )
+    [onChange]
+  );
 
   const formatButtons = [
-    { icon: Bold, label: "Bold", action: () => formatText("bold") },
+    // { icon: Bold, label: "Bold", action: () => formatText("bold") },
     // Removed invalid Linebreak icon entry
-    { icon: Italic, label: "Italic", action: () => formatText("italic") },
-    { icon: Underline, label: "Underline", action: () => formatText("underline") },
-    { icon: List, label: "Bullet List", action: () => formatText("insertUnorderedList") },
-    { icon: ListOrdered, label: "Numbered List", action: () => formatText("insertOrderedList") },
-  ]
+    // { icon: Italic, label: "Italic", action: () => formatText("italic") },
+    // { icon: Underline, label: "Underline", action: () => formatText("underline") },
+    // { icon: List, label: "Bullet List", action: () => formatText("insertUnorderedList") },
+    // { icon: ListOrdered, label: "Numbered List", action: () => formatText("insertOrderedList") },
+  ];
 
   return (
     <div className={`space-y-3 ${className}`}>
       <div className="flex items-center gap-2 flex-wrap p-3 border rounded-lg bg-gray-50">
         {formatButtons.map((button) => {
-          const IconComponent = button.icon
+          const IconComponent = button.icon;
           return (
-            <Button key={button.label} variant="outline" size="sm" onClick={button.action} title={button.label}>
+            <Button
+              key={button.label}
+              variant="outline"
+              size="sm"
+              onClick={button.action}
+              title={button.label}
+            >
               <IconComponent className="w-4 h-4" />
             </Button>
-          )
+          );
         })}
-
         <div className="h-4 w-px bg-gray-300 mx-1" />
-
-        <Button variant="outline" size="sm" onClick={() => wrapSelection("<p>", "</p>")}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => wrapSelection("<strong>", "</strong>")}
+        >
+          Bold
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => wrapSelection("<i>", "</i>")}
+        >
+          Italic
+        </Button>{" "}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => wrapSelection("<u>", "</u>")}
+        >
+          <Underline/>
+        </Button>{" "}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => wrapSelection("<p>", "</p>")}
+        >
           P
         </Button>
-
-        <Button variant="outline" size="sm" onClick={() => wrapSelection("<h1>", "</h1>")}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => wrapSelection("<h1>", "</h1>")}
+        >
           H1
         </Button>
-
-        <Button variant="outline" size="sm" onClick={() => wrapSelection("<h2>", "</h2>")}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => wrapSelection("<h2>", "</h2>")}
+        >
           H2
         </Button>
-        <Button variant="outline" size="sm" onClick={() => wrapSelection("<br/>")}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => wrapSelection("<br/>")}
+        >
           Line Break
         </Button>
-
         <div className="h-4 w-px bg-gray-300 mx-1" />
-
         <Popover>
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" disabled={!selectedText}>
@@ -357,12 +421,16 @@ export function RichTextEditor({
                 <AdvancedColorPicker
                   label="Background"
                   color="transparent"
-                  onChange={(color) => applyInlineStyle("background-color", color)}
+                  onChange={(color) =>
+                    applyInlineStyle("background-color", color)
+                  }
                 />
               </div>
               <div>
                 <Label>Font Size</Label>
-                <Select onValueChange={(size) => applyInlineStyle("font-size", size)}>
+                <Select
+                  onValueChange={(size) => applyInlineStyle("font-size", size)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select size" />
                   </SelectTrigger>
@@ -381,23 +449,37 @@ export function RichTextEditor({
               </div>
               <div>
                 <Label>Font Family</Label>
-                <Select onValueChange={(family) => applyInlineStyle("font-family", family)}>
+                <Select
+                  onValueChange={(family) =>
+                    applyInlineStyle("font-family", family)
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select font" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Arial, sans-serif">Arial</SelectItem>
                     <SelectItem value="Georgia, serif">Georgia</SelectItem>
-                    <SelectItem value="Times New Roman, serif">Times New Roman</SelectItem>
-                    <SelectItem value="Courier New, monospace">Courier New</SelectItem>
+                    <SelectItem value="Times New Roman, serif">
+                      Times New Roman
+                    </SelectItem>
+                    <SelectItem value="Courier New, monospace">
+                      Courier New
+                    </SelectItem>
                     <SelectItem value="Verdana, sans-serif">Verdana</SelectItem>
-                    <SelectItem value="Helvetica, sans-serif">Helvetica</SelectItem>
+                    <SelectItem value="Helvetica, sans-serif">
+                      Helvetica
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label>Font Weight</Label>
-                <Select onValueChange={(weight) => applyInlineStyle("font-weight", weight)}>
+                <Select
+                  onValueChange={(weight) =>
+                    applyInlineStyle("font-weight", weight)
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select weight" />
                   </SelectTrigger>
@@ -416,9 +498,7 @@ export function RichTextEditor({
             </div>
           </PopoverContent>
         </Popover>
-
         <div className="h-4 w-px bg-gray-300 mx-1" />
-
         <Popover>
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm">
@@ -432,10 +512,10 @@ export function RichTextEditor({
                 placeholder="Enter image URL"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
-                    const url = (e.target as HTMLInputElement).value
+                    const url = (e.target as HTMLInputElement).value;
                     if (url) {
-                      insertMedia("image", url)
-                      ;(e.target as HTMLInputElement).value = ""
+                      insertMedia("image", url);
+                      (e.target as HTMLInputElement).value = "";
                     }
                   }
                 }}
@@ -443,7 +523,6 @@ export function RichTextEditor({
             </div>
           </PopoverContent>
         </Popover>
-
         <Popover>
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm">
@@ -457,10 +536,10 @@ export function RichTextEditor({
                 placeholder="Enter video URL"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
-                    const url = (e.target as HTMLInputElement).value
+                    const url = (e.target as HTMLInputElement).value;
                     if (url) {
-                      insertMedia("video", url)
-                      ;(e.target as HTMLInputElement).value = ""
+                      insertMedia("video", url);
+                      (e.target as HTMLInputElement).value = "";
                     }
                   }
                 }}
@@ -468,7 +547,6 @@ export function RichTextEditor({
             </div>
           </PopoverContent>
         </Popover>
-
         <Popover>
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm">
@@ -482,10 +560,10 @@ export function RichTextEditor({
                 placeholder="Enter audio URL"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
-                    const url = (e.target as HTMLInputElement).value
+                    const url = (e.target as HTMLInputElement).value;
                     if (url) {
-                      insertMedia("audio", url)
-                      ;(e.target as HTMLInputElement).value = ""
+                      insertMedia("audio", url);
+                      (e.target as HTMLInputElement).value = "";
                     }
                   }
                 }}
@@ -493,17 +571,22 @@ export function RichTextEditor({
             </div>
           </PopoverContent>
         </Popover>
-
         <div className="h-4 w-px bg-gray-300 mx-1" />
-
-        <Button variant="outline" size="sm" onClick={handlePasteWithFormatting} title="Paste with formatting">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handlePasteWithFormatting}
+          title="Paste with formatting"
+        >
           <Paste className="w-4 h-4" />
         </Button>
-
-        <Button variant="outline" size="sm" onClick={() => setIsHtmlMode(!isHtmlMode)}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setIsHtmlMode(!isHtmlMode)}
+        >
           {isHtmlMode ? "Visual" : "HTML"}
         </Button>
-
         <button
           type="button"
           onClick={() => formatText("strikeThrough")}
@@ -568,9 +651,10 @@ export function RichTextEditor({
       {selectedText && (
         <div className="text-xs text-gray-500">
           Selected: "{selectedText.substring(0, 50)}
-          {selectedText.length > 50 ? "..." : ""}" (characters {selectionStart}-{selectionEnd})
+          {selectedText.length > 50 ? "..." : ""}" (characters {selectionStart}-
+          {selectionEnd})
         </div>
       )}
     </div>
-  )
+  );
 }

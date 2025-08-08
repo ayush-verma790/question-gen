@@ -1,14 +1,17 @@
 "use client";
 
-import React, { useState, useCallback, useMemo, useEffect, memo } from "react";
+import React, { useState, useCallback, useMemo, useEffect, memo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, Plus, Eye, TextCursorInput } from "lucide-react";
-
-// Types
+import {
+  Image, Video, Music, Bold, Italic, Underline,
+  Heading1, Heading2, Pilcrow, Type, List, ListOrdered,
+  Link, Palette
+} from 'lucide-react';// Types
 type ContentBlock = {
   id: string;
   type: "text" | "image" | "video" | "audio";
@@ -51,6 +54,16 @@ const ContentBlockEditor = memo(
     allowTextBox?: boolean;
     onInsertTextBox?: (blockId: string) => void;
   }) => {
+    // State for each component instance
+    const [selectedText, setSelectedText] = useState('');
+    const [selectionRange, setSelectionRange] = useState<{start: number, end: number} | null>(null);
+    const [showMediaModal, setShowMediaModal] = useState(false);
+    const [mediaType, setMediaType] = useState<'image' | 'video' | 'audio'>('image');
+    const [mediaUrl, setMediaUrl] = useState('');
+    const [mediaAlt, setMediaAlt] = useState('');
+    const [activeTextareaIndex, setActiveTextareaIndex] = useState<number | null>(null);
+    const textareaRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
+
     const updateBlock = (index: number, updatedBlock: ContentBlock) => {
       const newBlocks = [...blocks];
       newBlocks[index] = updatedBlock;
@@ -77,6 +90,98 @@ const ContentBlockEditor = memo(
       onChange(newBlocks);
     };
 
+    // Handle text selection
+    const handleTextSelection = (index: number) => {
+      if (typeof window === 'undefined') return; // Skip during SSR
+      
+      const textarea = textareaRefs.current[index];
+      if (!textarea) return;
+      
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      
+      if (start !== end) {
+        setSelectedText(textarea.value.substring(start, end));
+        setSelectionRange({ start, end });
+        setActiveTextareaIndex(index);
+      } else {
+        setSelectedText('');
+        setSelectionRange(null);
+        setActiveTextareaIndex(null);
+      }
+    };
+
+    // Wrap selected text with tags
+    const wrapSelection = (tag: string, extraAttrs = '') => {
+      if (!selectedText || !selectionRange || activeTextareaIndex === null) return;
+      
+      const block = blocks[activeTextareaIndex];
+      const { start, end } = selectionRange;
+      const before = block.content.substring(0, start);
+      const after = block.content.substring(end);
+      const wrappedText = extraAttrs 
+        ? `<${tag} ${extraAttrs}>${selectedText}</${tag}>`
+        : `<${tag}>${selectedText}</${tag}>`;
+      
+      updateBlock(activeTextareaIndex, {
+        ...block,
+        content: before + wrappedText + after
+      });
+      
+      // Reset selection
+      setSelectedText('');
+      setSelectionRange(null);
+      setActiveTextareaIndex(null);
+    };
+
+    // Insert HTML tag at cursor position
+    const insertTag = (tag: string, isSelfClosing = false) => {
+      if (activeTextareaIndex === null) return;
+      
+      const block = blocks[activeTextareaIndex];
+      const textarea = textareaRefs.current[activeTextareaIndex];
+      if (!textarea) return;
+
+      const cursorPos = textarea.selectionStart;
+      const before = block.content.substring(0, cursorPos);
+      const after = block.content.substring(cursorPos);
+      
+      const tagToInsert = isSelfClosing ? `<${tag} />` : `<${tag}></${tag}>`;
+      
+      updateBlock(activeTextareaIndex, {
+        ...block,
+        content: before + tagToInsert + after
+      });
+    };
+
+    // Handle media insertion
+    const handleInsertMedia = () => {
+      if (activeTextareaIndex === null) return;
+      
+      const block = blocks[activeTextareaIndex];
+      let mediaTag = '';
+      
+      switch (mediaType) {
+        case 'image':
+          mediaTag = `<img src="${mediaUrl}" alt="${mediaAlt}" class="max-w-full h-auto" />`;
+          break;
+        case 'video':
+          mediaTag = `<video src="${mediaUrl}" controls class="max-w-full"></video>`;
+          break;
+        case 'audio':
+          mediaTag = `<audio src="${mediaUrl}" controls></audio>`;
+          break;
+      }
+      
+      updateBlock(activeTextareaIndex, {
+        ...block,
+        content: block.content + mediaTag
+      });
+      
+      setShowMediaModal(false);
+      setMediaUrl('');
+      setMediaAlt('');
+    };
     return (
       <Card>
         <CardHeader>
@@ -107,7 +212,7 @@ const ContentBlockEditor = memo(
               {block.type === "text" ? (
                 <div className="space-y-2">
                   {allowTextBox && onInsertTextBox && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 mb-2">
                       <Button
                         variant="outline"
                         size="sm"
@@ -119,17 +224,256 @@ const ContentBlockEditor = memo(
                       </Button>
                     </div>
                   )}
+
+                  {/* Enhanced Formatting Toolbar */}
+                  <div className="mb-2 space-y-2">
+                    {/* Text Formatting */}
+                    <div className="flex flex-wrap gap-2 p-2 border rounded bg-gray-50">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => wrapSelection('strong')}
+                        className="p-1 h-8 w-8"
+                        title="Bold"
+                        disabled={!selectedText}
+                      >
+                        <Bold className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => wrapSelection('em')}
+                        className="p-1 h-8 w-8"
+                        title="Italic"
+                        disabled={!selectedText}
+                      >
+                        <Italic className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => wrapSelection('u')}
+                        className="p-1 h-8 w-8"
+                        title="Underline"
+                        disabled={!selectedText}
+                      >
+                        <Underline className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => wrapSelection('mark', 'class="highlight"')}
+                        className="px-2 py-1 text-xs"
+                        title="Highlight"
+                        disabled={!selectedText}
+                      >
+                        Mark
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => wrapSelection('span', 'style="color: red;"')}
+                        className="px-2 py-1 text-xs"
+                        title="Red Text"
+                        disabled={!selectedText}
+                      >
+                        Red
+                      </Button>
+                    </div>
+
+                  
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => wrapSelection('h1')}
+                        className="p-1 h-8 w-8"
+                        title="Heading 1"
+                        disabled={!selectedText}
+                      >
+                        <Heading1 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => wrapSelection('h2')}
+                        className="p-1 h-8 w-8"
+                        title="Heading 2"
+                        disabled={!selectedText}
+                      >
+                        <Heading2 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => wrapSelection('p')}
+                        className="p-1 h-8 w-8"
+                        title="Paragraph"
+                        disabled={!selectedText}
+                      >
+                        <Pilcrow className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => insertTag('br', true)}
+                        className="px-2 py-1 text-xs"
+                        title="Line Break"
+                      >
+                        BR
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => insertTag('hr', true)}
+                        className="px-2 py-1 text-xs"
+                        title="Horizontal Rule"
+                      >
+                        HR
+                      </Button>
+                
+
+                    {/* Lists and Links */}
+                   
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => wrapSelection('ul')}
+                        className="p-1 h-8 w-8"
+                        title="Unordered List"
+                        disabled={!selectedText}
+                      >
+                        <List className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => wrapSelection('ol')}
+                        className="p-1 h-8 w-8"
+                        title="Ordered List"
+                        disabled={!selectedText}
+                      >
+                        <ListOrdered className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => wrapSelection('li')}
+                        className="px-2 py-1 text-xs"
+                        title="List Item"
+                        disabled={!selectedText}
+                      >
+                        LI
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => wrapSelection('a', 'href="#"')}
+                        className="p-1 h-8 w-8"
+                        title="Link"
+                        disabled={!selectedText}
+                      >
+                        <Link className="w-4 h-4" />
+                      </Button>
+                    
+
+                    {/* Media Insert */}
+                    <div className="flex flex-wrap gap-2 p-2 border rounded bg-gray-50">
+                      <span className="text-xs text-gray-600 mr-2">Media:</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setActiveTextareaIndex(index);
+                          setMediaType('image');
+                          setShowMediaModal(true);
+                        }}
+                        className="px-2 py-1 text-xs flex items-center gap-1"
+                      >
+                        <Image className="w-4 h-4" /> Image
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setActiveTextareaIndex(index);
+                          setMediaType('video');
+                          setShowMediaModal(true);
+                        }}
+                        className="px-2 py-1 text-xs flex items-center gap-1"
+                      >
+                        <Video className="w-4 h-4" /> Video
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setActiveTextareaIndex(index);
+                          setMediaType('audio');
+                          setShowMediaModal(true);
+                        }}
+                        className="px-2 py-1 text-xs flex items-center gap-1"
+                      >
+                        <Music className="w-4 h-4" /> Audio
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Media Modal */}
+                  {showMediaModal && (
+                    <div className="absolute top-0 left-0 right-0 bg-white border rounded-lg shadow-lg p-4 z-50">
+                      <h3 className="font-medium mb-2">Insert {mediaType}</h3>
+                      <input
+                        type="text"
+                        value={mediaUrl}
+                        onChange={(e) => setMediaUrl(e.target.value)}
+                        placeholder={`Enter ${mediaType} URL`}
+                        className="w-full p-2 border rounded mb-2"
+                      />
+                      {mediaType === 'image' && (
+                        <input
+                          type="text"
+                          value={mediaAlt}
+                          onChange={(e) => setMediaAlt(e.target.value)}
+                          placeholder="Alt text (optional)"
+                          className="w-full p-2 border rounded mb-2"
+                        />
+                      )}
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowMediaModal(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={handleInsertMedia}
+                          disabled={!mediaUrl}
+                        >
+                          Insert
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+
                   <textarea
+                    ref={(el) => {
+                      textareaRefs.current[index] = el;
+                    }}
                     value={block.content}
                     placeholder="Enter text content here [1]"
                     onChange={(e) =>
                       updateBlock(index, { ...block, content: e.target.value })
                     }
+                    onSelect={() => handleTextSelection(index)}
+                    onFocus={() => setActiveTextareaIndex(index)}
                     className="w-full min-h-[100px] border p-2 rounded bg-white"
                   />
                   <div className="text-xs text-gray-500 mt-1">
-                    You can use HTML tags like &lt;br&gt;, &lt;strong&gt;, etc.
-                    in the content.
+                    You can use HTML tags like &lt;br&gt;, &lt;strong&gt;, &lt;p&gt;, etc.
+                    Select text to format it, or use toolbar buttons to insert tags.
                   </div>
                 </div>
               ) : (

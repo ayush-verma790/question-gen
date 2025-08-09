@@ -655,13 +655,13 @@ export default function ChoiceBuilderPage() {
                       title="Option Content"
                     />
 
-                    <ContentBlockEditor
+                    {/* <ContentBlockEditor
                       blocks={option.inlineFeedbackBlocks}
                       onChange={(blocks) =>
                         updateOptionFeedbackBlocks(option.identifier, blocks)
                       }
                       title="Inline Feedback (Optional)"
-                    />
+                    /> */}
                   </div>
                 </Card>
               ))}

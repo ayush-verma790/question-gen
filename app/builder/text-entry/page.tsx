@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, Plus, Eye, TextCursorInput } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Trash2, Plus, Eye, TextCursorInput, Upload, FileText } from "lucide-react";
 import {
   Image, Video, Music, Bold, Italic, Underline,
   Heading1, Heading2, Pilcrow, Type, List, ListOrdered,
@@ -990,8 +991,197 @@ ${incorrectFeedbackContent}
 </qti-assessment-item>`;
 }
 
+// XML Parsing Function
+function parseTextEntryXML(xmlString: string): TextEntryQuestion {
+  try {
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+
+    // Check for parsing errors
+    const parserError = xmlDoc.querySelector("parsererror");
+    if (parserError) {
+      throw new Error("Invalid XML format");
+    }
+
+    // Get assessment item attributes
+    const assessmentItem = xmlDoc.querySelector("qti-assessment-item");
+    if (!assessmentItem) {
+      throw new Error("No qti-assessment-item found");
+    }
+
+    const identifier = assessmentItem.getAttribute("identifier") || `text-entry-${Date.now()}`;
+    const title = assessmentItem.getAttribute("title") || "Imported Text Entry Question";
+
+    // Parse response declarations
+    const responseDeclarations = xmlDoc.querySelectorAll("qti-response-declaration");
+    const correctAnswers: string[] = [];
+    const textEntryBoxes: TextEntryBox[] = [];
+
+    responseDeclarations.forEach((decl, index) => {
+      const responseId = decl.getAttribute("identifier") || `RESPONSE${index + 1}`;
+      const correctValue = decl.querySelector("qti-correct-response qti-value");
+      
+      correctAnswers.push(correctValue?.textContent || "");
+      textEntryBoxes.push({
+        id: `box${index + 1}`,
+        responseId: responseId,
+        expectedLength: undefined,
+        patternMask: undefined,
+        widthClass: "qti-input-width-5",
+      });
+    });
+
+    // Parse item body content
+    const itemBody = xmlDoc.querySelector("qti-item-body");
+    let promptContent = "";
+    let textEntryIndex = 0;
+
+    if (itemBody) {
+      // Get all child nodes and process them
+      const processNode = (node: Node): string => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          return node.textContent || "";
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          const element = node as Element;
+          
+          if (element.tagName === "qti-text-entry-interaction") {
+            textEntryIndex++;
+            const responseId = element.getAttribute("response-identifier");
+            const expectedLength = element.getAttribute("expected-length");
+            const patternMask = element.getAttribute("pattern-mask");
+            const className = element.getAttribute("class");
+            
+            // Update corresponding text entry box
+            const boxIndex = textEntryBoxes.findIndex(box => box.responseId === responseId);
+            if (boxIndex >= 0) {
+              textEntryBoxes[boxIndex] = {
+                ...textEntryBoxes[boxIndex],
+                expectedLength: expectedLength ? parseInt(expectedLength) : undefined,
+                patternMask: patternMask || undefined,
+                widthClass: className || "qti-input-width-5",
+              };
+            }
+            
+            return `[${textEntryIndex}]`;
+          } else if (element.tagName === "qti-modal-feedback") {
+            // Skip feedback elements as they're processed separately
+            return "";
+          } else if (element.tagName === "qti-content-body") {
+            // Process content body children
+            return Array.from(element.childNodes).map(processNode).join("");
+          } else {
+            // For other elements, recreate the HTML
+            const attributes = Array.from(element.attributes)
+              .map(attr => `${attr.name}="${attr.value}"`)
+              .join(" ");
+            const innerHTML = Array.from(element.childNodes).map(processNode).join("");
+            return `<${element.tagName}${attributes ? " " + attributes : ""}>${innerHTML}</${element.tagName}>`;
+          }
+        }
+        return "";
+      };
+
+      // Process all child nodes of item-body, excluding feedback
+      const childNodes = Array.from(itemBody.childNodes).filter(node => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const element = node as Element;
+          return element.tagName !== "qti-modal-feedback";
+        }
+        return true;
+      });
+
+      promptContent = childNodes.map(processNode).join("");
+    }
+
+    // Parse feedback blocks
+    const correctFeedback = xmlDoc.querySelector('qti-modal-feedback[identifier="CORRECT"]');
+    const incorrectFeedback = xmlDoc.querySelector('qti-modal-feedback[identifier="INCORRECT"]');
+
+    const correctFeedbackBlocks: ContentBlock[] = [];
+    const incorrectFeedbackBlocks: ContentBlock[] = [];
+
+    if (correctFeedback) {
+      const feedbackContent = correctFeedback.querySelector("qti-content-body")?.innerHTML || 
+                             correctFeedback.textContent || "";
+      correctFeedbackBlocks.push({
+        id: "correct_feedback_block",
+        type: "text",
+        content: feedbackContent,
+        styles: {
+          fontSize: "16px",
+          color: "#27ae60",
+          backgroundColor: "#d5f5e6",
+          padding: "16px",
+          borderRadius: "8px",
+          textAlign: "center",
+        },
+        attributes: {},
+      });
+    }
+
+    if (incorrectFeedback) {
+      const feedbackContent = incorrectFeedback.querySelector("qti-content-body")?.innerHTML || 
+                             incorrectFeedback.textContent || "";
+      incorrectFeedbackBlocks.push({
+        id: "incorrect_feedback_block",
+        type: "text",
+        content: feedbackContent,
+        styles: {
+          fontSize: "16px",
+          color: "#e74c3c",
+          backgroundColor: "#fdf2f2",
+          padding: "16px",
+          borderRadius: "8px",
+          textAlign: "center",
+        },
+        attributes: {},
+      });
+    }
+
+    // Create prompt blocks
+    const promptBlocks: ContentBlock[] = [
+      {
+        id: "prompt_block_1",
+        type: "text",
+        content: promptContent,
+        styles: {
+          fontSize: "18px",
+          fontFamily: "Arial, sans-serif",
+          color: "#2c3e50",
+          backgroundColor: "#f8f9fa",
+          padding: "16px",
+          margin: "8px",
+          borderRadius: "8px",
+          border: "1px solid #e9ecef",
+          textAlign: "left",
+        },
+        attributes: {},
+      },
+    ];
+
+    return {
+      identifier,
+      title,
+      promptBlocks,
+      textEntryBoxes,
+      correctAnswers,
+      caseSensitive: false,
+      correctFeedbackBlocks,
+      incorrectFeedbackBlocks,
+    };
+
+  } catch (error) {
+    console.error("Error parsing XML:", error);
+    throw new Error(`Failed to parse XML: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
 // Main Component
 export default function TextEntryBuilderPage() {
+  const [xmlInput, setXmlInput] = useState("");
+  const [parseError, setParseError] = useState("");
+  const [showXmlImport, setShowXmlImport] = useState(false);
+  
   const [question, setQuestion] = useState<TextEntryQuestion>({
     identifier: "text-entry-question-1",
     title: "Sample Text Entry Question",
@@ -1067,6 +1257,24 @@ export default function TextEntryBuilderPage() {
   const [generatedXML, setGeneratedXML] = useState("");
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [cursorPosition, setCursorPosition] = useState<number | null>(null);
+
+  // XML Import handlers
+  const handleParseXML = useCallback(() => {
+    try {
+      const parsedQuestion = parseTextEntryXML(xmlInput);
+      setQuestion(parsedQuestion);
+      setParseError("");
+      setShowXmlImport(false);
+      setXmlInput("");
+    } catch (error) {
+      setParseError(error instanceof Error ? error.message : "Unknown parsing error");
+    }
+  }, [xmlInput]);
+
+  const handleClearXMLInput = useCallback(() => {
+    setXmlInput("");
+    setParseError("");
+  }, []);
 
   // Optimized text box insertion
   const insertTextEntryBox = useCallback(
@@ -1194,6 +1402,60 @@ export default function TextEntryBuilderPage() {
           <p className="text-gray-600">
             Create questions with inline text entry boxes
           </p>
+        </div>
+
+        {/* XML Import Section */}
+        <div className="mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <Upload className="w-5 h-5" />
+                  Import from XML
+                </span>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowXmlImport(!showXmlImport)}
+                >
+                  {showXmlImport ? "Hide Import" : "Show Import"}
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            {showXmlImport && (
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="xml-input">Paste QTI Text Entry XML</Label>
+                  <Textarea
+                    id="xml-input"
+                    value={xmlInput}
+                    onChange={(e) => setXmlInput(e.target.value)}
+                    placeholder="Paste your QTI XML here..."
+                    className="min-h-32 font-mono text-sm"
+                  />
+                </div>
+                {parseError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <div className="flex items-center gap-2 text-red-700">
+                      <FileText className="w-4 h-4" />
+                      <span className="font-medium">Parse Error:</span>
+                    </div>
+                    <p className="text-red-600 text-sm mt-1">{parseError}</p>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Button onClick={handleParseXML} disabled={!xmlInput.trim()}>
+                    Parse & Load XML
+                  </Button>
+                  <Button variant="outline" onClick={handleClearXMLInput}>
+                    Clear
+                  </Button>
+                  <div className="text-sm text-gray-500 flex items-center ml-auto">
+                    💡 This will replace your current question with the imported one
+                  </div>
+                </div>
+              </CardContent>
+            )}
+          </Card>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8">

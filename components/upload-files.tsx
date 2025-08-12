@@ -19,12 +19,6 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-} from "@radix-ui/react-tooltip";
-import { TooltipTrigger } from "@/components/ui/tooltip";
 
 export function UploadFiles() {
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
@@ -289,31 +283,18 @@ export function UploadFiles() {
                             readOnly
                             className="flex-1 truncate rounded-md bg-white text-sm font-mono text-gray-700"
                           />
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() =>
-                                    copyToClipboard(url, index)
-                                  }
-                                  className="shrink-0 hover:bg-gray-200"
-                                >
-                                  {copiedIndex === index ? (
-                                    <CheckCircle className="h-4 w-4 text-green-600" />
-                                  ) : (
-                                    <Copy className="h-4 w-4 text-gray-500" />
-                                  )}
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                {copiedIndex === index
-                                  ? "Copied!"
-                                  : "Copy URL"}
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => copyToClipboard(url, index)}
+                            className="shrink-0 hover:bg-gray-200"
+                          >
+                            {copiedIndex === index ? (
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                            ) : (
+                              <Copy className="h-4 w-4 text-gray-500" />
+                            )}
+                          </Button>
                         </div>
                       </div>
                     </div>

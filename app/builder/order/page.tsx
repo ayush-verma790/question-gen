@@ -7,11 +7,131 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Trash2, Plus, GripVertical, Eye } from "lucide-react"
+import { Trash2, Plus, GripVertical, Eye, Upload, ChevronDown, ChevronUp } from "lucide-react"
 import { ContentBlockEditor } from "@/components/content-block-editor"
 import { XMLViewer } from "@/components/xml-viewer"
 import type { OrderQuestion, OrderOption, ContentBlock } from "@/lib/types"
 import { generateOrderXML } from "@/lib/xml-generator"
+
+// Helper function to parse XML string and extract content blocks
+const parseContentBlocks = (element: Element | null): ContentBlock[] => {
+  if (!element) return []
+  
+  // For QTI elements, we want to get their inner content
+  const contentElement = element.tagName.toLowerCase().startsWith('qti-') ? 
+    element.querySelector('div') || element : 
+    element
+
+  const styles: Record<string, string> = {}
+  const styleAttr = contentElement.getAttribute('style')
+  if (styleAttr) {
+    styleAttr.split(';').forEach(style => {
+      const [key, value] = style.split(':').map(s => s.trim())
+      if (key && value) {
+        styles[key] = value
+      }
+    })
+  }
+
+  const attributes: Record<string, string> = {}
+  Array.from(contentElement.attributes).forEach(attr => {
+    if (attr.name !== 'style') {
+      attributes[attr.name] = attr.value
+    }
+  })
+
+  // Get the HTML content, handling both direct content and qti-content-body
+  let content = contentElement.innerHTML
+  if (contentElement.querySelector('qti-content-body')) {
+    content = contentElement.querySelector('qti-content-body')?.innerHTML || ''
+  }
+
+  return [{
+    id: `block_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    type: 'text', // Default to text for QTI content
+    content,
+    styles,
+    attributes
+  }]
+}
+
+// Update the parseOrderXML function to handle QTI format
+const parseOrderXML = (xmlString: string): OrderQuestion | null => {
+  try {
+    const parser = new DOMParser()
+    const xmlDoc = parser.parseFromString(xmlString, "text/xml")
+    
+    const itemElement = xmlDoc.querySelector('qti-assessment-item')
+    if (!itemElement) return null
+
+    const identifier = itemElement.getAttribute('identifier') || `order-question-${Date.now()}`
+    const title = itemElement.getAttribute('title') || 'Untitled Order Question'
+    
+    // Get order interaction
+    const orderInteraction = xmlDoc.querySelector('qti-order-interaction')
+    const shuffle = orderInteraction?.getAttribute('shuffle') === 'true'
+    const orientation = (orderInteraction?.getAttribute('orientation') || 'vertical') as 'vertical' | 'horizontal'
+
+    // Get correct response order from response declaration
+    const options: OrderOption[] = []
+    const correctResponseValues = xmlDoc.querySelectorAll('qti-response-declaration qti-correct-response qti-value')
+    const simpleChoices = xmlDoc.querySelectorAll('qti-order-interaction qti-simple-choice')
+
+    // Create a map of choices
+    const choiceMap = new Map<string, Element>()
+    simpleChoices.forEach(choice => {
+      const id = choice.getAttribute('identifier') || ''
+      choiceMap.set(id, choice)
+    })
+
+    // Process correct response order
+    correctResponseValues.forEach((response, index) => {
+      const choiceId = response.textContent?.trim() || ''
+      if (choiceId && choiceMap.has(choiceId)) {
+        const choiceElement = choiceMap.get(choiceId) as Element
+        
+        options.push({
+          identifier: choiceId,
+          contentBlocks: parseContentBlocks(choiceElement),
+          correctOrder: index + 1
+        })
+      }
+    })
+
+    // If no correct responses found, use choices in document order
+    if (options.length === 0) {
+      simpleChoices.forEach((choice, index) => {
+        const choiceId = choice.getAttribute('identifier') || `option_${index + 1}`
+        options.push({
+          identifier: choiceId,
+          contentBlocks: parseContentBlocks(choice),
+          correctOrder: index + 1
+        })
+      })
+    }
+
+    // Get prompt from item body (first div before order interaction)
+    const promptElement = xmlDoc.querySelector('qti-item-body > div:first-of-type')
+    
+    // Get feedback blocks
+    const correctFeedbackElement = xmlDoc.querySelector('qti-feedback-block[identifier="CORRECT"] div')
+    const incorrectFeedbackElement = xmlDoc.querySelector('qti-feedback-block[identifier="INCORRECT"] div')
+
+    return {
+      identifier,
+      title,
+      promptBlocks: parseContentBlocks(promptElement),
+      options,
+      correctFeedbackBlocks: parseContentBlocks(correctFeedbackElement),
+      incorrectFeedbackBlocks: parseContentBlocks(incorrectFeedbackElement),
+      shuffle,
+      orientation
+    }
+  } catch (error) {
+    console.error('Error parsing QTI XML:', error)
+    return null
+  }
+}
 
 export default function OrderBuilderPage() {
   const [question, setQuestion] = useState<OrderQuestion>({
@@ -156,6 +276,8 @@ export default function OrderBuilderPage() {
   })
 
   const [generatedXML, setGeneratedXML] = useState("")
+  const [importXML, setImportXML] = useState("")
+  const [isImportCollapsed, setIsImportCollapsed] = useState(true)
 
   useEffect(() => {
     if (question.identifier && question.promptBlocks.length > 0 && question.options.length > 0) {
@@ -163,6 +285,18 @@ export default function OrderBuilderPage() {
       setGeneratedXML(xml)
     }
   }, [question])
+
+  const handleImportXML = () => {
+    if (!importXML.trim()) return
+    
+    const parsedQuestion = parseOrderXML(importXML)
+    if (parsedQuestion) {
+      setQuestion(parsedQuestion)
+      setImportXML("")
+    } else {
+      alert("Invalid XML format. Please check your XML and try again.")
+    }
+  }
 
   const addOption = () => {
     const newOption: OrderOption = {
@@ -308,14 +442,48 @@ export default function OrderBuilderPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 max-w-5xl">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Order Question Builder</h1>
           <p className="text-gray-600">Create drag-and-drop ordering questions with rich multimedia content</p>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-8">
+        <div className="grid lg:grid-cols-1 gap-8">
           <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle 
+                  className="flex items-center justify-between cursor-pointer"
+                  onClick={() => setIsImportCollapsed(!isImportCollapsed)}
+                >
+                  <span>Import XML</span>
+                  {isImportCollapsed ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronUp className="h-4 w-4" />
+                  )}
+                </CardTitle>
+              </CardHeader>
+              {!isImportCollapsed && (
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="import-xml">Paste your XML here</Label>
+                    <textarea
+                      id="import-xml"
+                      value={importXML}
+                      onChange={(e) => setImportXML(e.target.value)}
+                      placeholder="Paste your order question XML here..."
+                      className="w-full h-40 p-2 border rounded-md font-mono text-sm"
+                    />
+                  </div>
+                  <Button onClick={handleImportXML}>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Import XML
+                  </Button>
+                </CardContent>
+              )}
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle>Question Details</CardTitle>
@@ -444,7 +612,9 @@ export default function OrderBuilderPage() {
             />
           </div>
 
-          <div className="space-y-6">
+         
+        </div>
+         <div className="space-y-6 mt-2">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -497,7 +667,6 @@ export default function OrderBuilderPage() {
               <XMLViewer xml={generatedXML} filename={`${question.identifier || "order-question"}.xml`} />
             )}
           </div>
-        </div>
       </div>
     </div>
   )

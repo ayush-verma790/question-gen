@@ -12,7 +12,8 @@ import {
   Image, Video, Music, Bold, Italic, Underline,
   Heading1, Heading2, Pilcrow, Type, List, ListOrdered,
   Link, Palette
-} from 'lucide-react';// Types
+} from 'lucide-react';
+import { ButtonSuggestions } from "@/components/button-suggestions";// Types
 type ContentBlock = {
   id: string;
   type: "text" | "image" | "video" | "audio";
@@ -101,38 +102,87 @@ const ContentBlockEditor = memo(
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
       
+      // Always set the active textarea index when user interacts with it
+      setActiveTextareaIndex(index);
+      
       if (start !== end) {
         setSelectedText(textarea.value.substring(start, end));
         setSelectionRange({ start, end });
-        setActiveTextareaIndex(index);
       } else {
         setSelectedText('');
         setSelectionRange(null);
-        setActiveTextareaIndex(null);
       }
     };
 
-    // Wrap selected text with tags
-    const wrapSelection = (tag: string, extraAttrs = '') => {
-      if (!selectedText || !selectionRange || activeTextareaIndex === null) return;
+    // Simple function to insert tags at cursor or wrap selection
+    const insertHtmlTag = (tag: string, extraAttrs = '', isSelfClosing = false) => {
+      // Find which textarea to use
+      let textareaIndex = activeTextareaIndex;
       
-      const block = blocks[activeTextareaIndex];
-      const { start, end } = selectionRange;
-      const before = block.content.substring(0, start);
-      const after = block.content.substring(end);
-      const wrappedText = extraAttrs 
-        ? `<${tag} ${extraAttrs}>${selectedText}</${tag}>`
-        : `<${tag}>${selectedText}</${tag}>`;
+      // If no active textarea, try to find the last clicked one
+      if (textareaIndex === null) {
+        // Use the first textarea as fallback
+        textareaIndex = 0;
+      }
       
-      updateBlock(activeTextareaIndex, {
+      if (textareaIndex === null || !textareaRefs.current[textareaIndex]) {
+        alert('Please click in a text area first');
+        return;
+      }
+      
+      const textarea = textareaRefs.current[textareaIndex];
+      const block = blocks[textareaIndex];
+      
+      // Get current cursor position and selection
+      const start = textarea.selectionStart || 0;
+      const end = textarea.selectionEnd || 0;
+      const hasSelection = start !== end;
+      
+      // Get text parts
+      const beforeCursor = block.content.substring(0, start);
+      const selectedOrEmpty = hasSelection ? block.content.substring(start, end) : '';
+      const afterCursor = block.content.substring(end);
+      
+      // Create the HTML tag to insert
+      let htmlToInsert = '';
+      let newCursorPosition = start;
+      
+      if (isSelfClosing) {
+        // For self-closing tags like <br />, <hr />
+        htmlToInsert = extraAttrs ? `<${tag} ${extraAttrs} />` : `<${tag} />`;
+        newCursorPosition = start + htmlToInsert.length;
+      } else if (hasSelection) {
+        // If text is selected, wrap it
+        htmlToInsert = extraAttrs 
+          ? `<${tag} ${extraAttrs}>${selectedOrEmpty}</${tag}>`
+          : `<${tag}>${selectedOrEmpty}</${tag}>`;
+        newCursorPosition = start + htmlToInsert.length;
+      } else {
+        // If no selection, insert opening and closing tags
+        htmlToInsert = extraAttrs 
+          ? `<${tag} ${extraAttrs}></${tag}>`
+          : `<${tag}></${tag}>`;
+        // Place cursor between the tags
+        const openingTagLength = extraAttrs 
+          ? `<${tag} ${extraAttrs}>`.length 
+          : `<${tag}>`.length;
+        newCursorPosition = start + openingTagLength;
+      }
+      
+      // Create new content
+      const newContent = beforeCursor + htmlToInsert + afterCursor;
+      
+      // Update the block
+      updateBlock(textareaIndex, {
         ...block,
-        content: before + wrappedText + after
+        content: newContent
       });
       
-      // Reset selection
-      setSelectedText('');
-      setSelectionRange(null);
-      setActiveTextareaIndex(null);
+      // Focus and position cursor
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+      }, 50);
     };
 
     // Insert HTML tag at cursor position
@@ -183,6 +233,32 @@ const ContentBlockEditor = memo(
       setMediaUrl('');
       setMediaAlt('');
     };
+
+    // Handle button suggestion insertion
+    const handleButtonSuggestion = (buttonHTML: string) => {
+      if (activeTextareaIndex === null) return;
+      
+      const block = blocks[activeTextareaIndex];
+      const textarea = textareaRefs.current[activeTextareaIndex];
+      if (!textarea) return;
+
+      const cursorPos = textarea.selectionStart || 0;
+      const before = block.content.substring(0, cursorPos);
+      const after = block.content.substring(cursorPos);
+      
+      updateBlock(activeTextareaIndex, {
+        ...block,
+        content: before + buttonHTML + after
+      });
+      
+      // Focus back to textarea and position cursor after inserted content
+      setTimeout(() => {
+        textarea.focus();
+        const newCursorPos = before.length + buttonHTML.length;
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      }, 50);
+    };
+    
     return (
       <Card>
         <CardHeader>
@@ -233,50 +309,45 @@ const ContentBlockEditor = memo(
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => wrapSelection('strong')}
+                        onClick={() => insertHtmlTag('strong')}
                         className="p-1 h-8 w-8"
-                        title="Bold"
-                        disabled={!selectedText}
+                        title="Bold - Wrap selection or insert tags"
                       >
                         <Bold className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => wrapSelection('em')}
+                        onClick={() => insertHtmlTag('em')}
                         className="p-1 h-8 w-8"
-                        title="Italic"
-                        disabled={!selectedText}
+                        title="Italic - Wrap selection or insert tags"
                       >
                         <Italic className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => wrapSelection('u')}
+                        onClick={() => insertHtmlTag('u')}
                         className="p-1 h-8 w-8"
-                        title="Underline"
-                        disabled={!selectedText}
+                        title="Underline - Wrap selection or insert tags"
                       >
                         <Underline className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => wrapSelection('mark', 'class="highlight"')}
+                        onClick={() => insertHtmlTag('mark', 'class="highlight"')}
                         className="px-2 py-1 text-xs"
-                        title="Highlight"
-                        disabled={!selectedText}
+                        title="Highlight - Wrap selection or insert tags"
                       >
                         Mark
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => wrapSelection('span', 'style="color: red;"')}
+                        onClick={() => insertHtmlTag('span', 'style="color: red;"')}
                         className="px-2 py-1 text-xs"
-                        title="Red Text"
-                        disabled={!selectedText}
+                        title="Red Text - Wrap selection or insert tags"
                       >
                         Red
                       </Button>
@@ -286,48 +357,45 @@ const ContentBlockEditor = memo(
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => wrapSelection('h1')}
+                        onClick={() => insertHtmlTag('h1')}
                         className="p-1 h-8 w-8"
-                        title="Heading 1"
-                        disabled={!selectedText}
+                        title="Heading 1 - Wrap selection or insert tags"
                       >
                         <Heading1 className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => wrapSelection('h2')}
+                        onClick={() => insertHtmlTag('h2')}
                         className="p-1 h-8 w-8"
-                        title="Heading 2"
-                        disabled={!selectedText}
+                        title="Heading 2 - Wrap selection or insert tags"
                       >
                         <Heading2 className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => wrapSelection('p')}
+                        onClick={() => insertHtmlTag('p')}
                         className="p-1 h-8 w-8"
-                        title="Paragraph"
-                        disabled={!selectedText}
+                        title="Paragraph - Wrap selection or insert tags"
                       >
                         <Pilcrow className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => insertTag('br', true)}
+                        onClick={() => insertHtmlTag('br', '', true)}
                         className="px-2 py-1 text-xs"
-                        title="Line Break"
+                        title="Line Break - Insert at cursor"
                       >
                         BR
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => insertTag('hr', true)}
+                        onClick={() => insertHtmlTag('hr', '', true)}
                         className="px-2 py-1 text-xs"
-                        title="Horizontal Rule"
+                        title="Horizontal Rule - Insert at cursor"
                       >
                         HR
                       </Button>
@@ -338,40 +406,36 @@ const ContentBlockEditor = memo(
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => wrapSelection('ul')}
+                        onClick={() => insertHtmlTag('ul')}
                         className="p-1 h-8 w-8"
-                        title="Unordered List"
-                        disabled={!selectedText}
+                        title="Unordered List - Wrap selection or insert tags"
                       >
                         <List className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => wrapSelection('ol')}
+                        onClick={() => insertHtmlTag('ol')}
                         className="p-1 h-8 w-8"
-                        title="Ordered List"
-                        disabled={!selectedText}
+                        title="Ordered List - Wrap selection or insert tags"
                       >
                         <ListOrdered className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => wrapSelection('li')}
+                        onClick={() => insertHtmlTag('li')}
                         className="px-2 py-1 text-xs"
-                        title="List Item"
-                        disabled={!selectedText}
+                        title="List Item - Wrap selection or insert tags"
                       >
                         LI
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => wrapSelection('a', 'href="#"')}
+                        onClick={() => insertHtmlTag('a', 'href="#"')}
                         className="p-1 h-8 w-8"
-                        title="Link"
-                        disabled={!selectedText}
+                        title="Link - Wrap selection or insert tags"
                       >
                         <Link className="w-4 h-4" />
                       </Button>
@@ -470,11 +534,25 @@ const ContentBlockEditor = memo(
                     }
                     onSelect={() => handleTextSelection(index)}
                     onFocus={() => setActiveTextareaIndex(index)}
+                    onClick={() => setActiveTextareaIndex(index)}
                     className="w-full min-h-[100px] border p-2 rounded bg-white"
                   />
-                  <div className="text-xs text-gray-500 mt-1">
-                    You can use HTML tags like &lt;br&gt;, &lt;strong&gt;, &lt;p&gt;, etc.
-                    Select text to format it, or use toolbar buttons to insert tags.
+                  
+                  {/* Button Suggestions Section */}
+                  <div className="mt-4">
+                    <ButtonSuggestions 
+                      onSuggestionClick={handleButtonSuggestion}
+                      className=""
+                      size="md"
+                      defaultCollapsed={true}
+                    />
+                  </div>
+                  
+                  <div className="text-xs text-gray-500 mt-3 bg-gray-50 px-3 py-2 rounded-lg border-l-4 border-gray-300">
+                    <strong>💡 Pro Tips:</strong> Use HTML tags like &lt;br&gt;, &lt;strong&gt;, &lt;p&gt;, etc. • 
+                    Select text and click formatting buttons to wrap it • 
+                    Click buttons without selection to insert empty tags at cursor • 
+                    Use button suggestions above for quick interactive elements
                   </div>
                 </div>
               ) : (
@@ -1224,7 +1302,7 @@ export default function TextEntryBuilderPage() {
       {
         id: "correct_feedback_block",
         type: "text",
-        content: "<p><strong>Correct!</strong> Well done.</p>",
+        content: "",
         styles: {
           fontSize: "16px",
           color: "#27ae60",
@@ -1240,7 +1318,7 @@ export default function TextEntryBuilderPage() {
       {
         id: "incorrect_feedback_block",
         type: "text",
-        content: "<p><strong>Incorrect.</strong> Please try again.</p>",
+        content: "",
         styles: {
           fontSize: "16px",
           color: "#e74c3c",

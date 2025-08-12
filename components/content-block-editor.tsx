@@ -28,6 +28,7 @@ import type { ContentBlock } from "@/lib/types"
 import { AdvancedColorPicker } from "@/components/advanced-color-picker"
 import { HTMLParser } from "@/components/html-parser"
 import { RichTextEditor } from "@/components/rich-text-editor"
+import { ButtonSuggestions } from "@/components/button-suggestions"
 
 interface ContentBlockEditorProps {
   blocks: ContentBlock[]
@@ -343,18 +344,47 @@ export function ContentBlockEditor({ blocks, onChange, title }: ContentBlockEdit
                     <div>
                       <Label>Content</Label>
                       {block.type === "text" ? (
-                        <RichTextEditor
-                          value={block.content}
-                          onChange={(value) => updateBlock(block.id, { content: value })}
-                          placeholder="Enter your rich text content..."
-                        />
+                        <div className="space-y-3">
+                          <RichTextEditor
+                            value={block.content}
+                            onChange={(value) => updateBlock(block.id, { content: value })}
+                            placeholder="Enter your rich text content..."
+                          />
+                          <div className="border-t pt-3 mt-4">
+                            <div className="bg-gradient-to-r from-green-50 to-blue-50 p-1 rounded-xl border border-green-100">
+                              <ButtonSuggestions
+                                onSuggestionClick={(buttonHtml) => {
+                                  const currentContent = block.content || "";
+                                  const newContent = currentContent + " " + buttonHtml;
+                                  updateBlock(block.id, { content: newContent });
+                                }}
+                                className=""
+                                size="md"
+                              />
+                            </div>
+                          </div>
+                        </div>
                       ) : block.type === "html" ? (
-                        <Textarea
-                          value={block.content}
-                          onChange={(e) => updateBlock(block.id, { content: e.target.value })}
-                          placeholder="Enter HTML content..."
-                          className="min-h-20 font-mono"
-                        />
+                        <div className="space-y-3">
+                          <Textarea
+                            value={block.content}
+                            onChange={(e) => updateBlock(block.id, { content: e.target.value })}
+                            placeholder="Enter HTML content..."
+                            className="min-h-20 font-mono"
+                          />
+                          <div className="border-t pt-3 mt-4">
+                            <ButtonSuggestions
+                              onSuggestionClick={(buttonHtml) => {
+                                const currentContent = block.content || "";
+                                const newContent = currentContent + "\n" + buttonHtml;
+                                updateBlock(block.id, { content: newContent });
+                              }}
+                              className=""
+                              size="md"
+                              defaultCollapsed={true}
+                            />
+                          </div>
+                        </div>
                       ) : (
                         <Input
                           value={block.content}

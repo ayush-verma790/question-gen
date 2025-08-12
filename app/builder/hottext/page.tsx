@@ -18,14 +18,25 @@ import {
   Video,
   FileText,
   Upload,
+  Palette,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { ContentBlockEditor } from "@/components/content-block-editor";
 import { XMLViewer } from "@/components/xml-viewer";
 import { AdvancedColorPicker } from "@/components/advanced-color-picker";
 import { Toggle } from "@/components/ui/toggle";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { ButtonSuggestions } from "@/components/button-suggestions";
 import type { HottextQuestion, HottextItem, ContentBlock } from "@/lib/types";
 import { generateHottextXML } from "@/lib/xml-generator";
+import { 
+  ButtonStylePresets, 
+  QuickStylePresets, 
+  buttonStylePresets, 
+  generateButtonHTML,
+  type ButtonStylePreset 
+} from "@/components/button-style-presets";
 
 function parseHottextXML(xmlString: string): HottextQuestion {
   const parser = new DOMParser();
@@ -477,6 +488,10 @@ export default function HottextBuilderPage() {
   const [activeTab, setActiveTab] = useState<"text" | "image" | "html">("text");
   const [isImporting, setIsImporting] = useState(false);
   const [importXML, setImportXML] = useState("");
+  const [showStylePresets, setShowStylePresets] = useState(false);
+  const [selectedItemForStyle, setSelectedItemForStyle] = useState<string | null>(null);
+  const [isReferenceExpanded, setIsReferenceExpanded] = useState(false);
+  const [isImportExpanded, setIsImportExpanded] = useState(false);
 
   useEffect(() => {
     if (
@@ -524,7 +539,7 @@ export default function HottextBuilderPage() {
     }
   };
 
-  const addHottextItem = () => {
+  const addHottextItem = (customStyles?: any) => {
     let contentValue = "";
     if (activeTab === "text" && !selectedText.trim()) return;
     if (activeTab === "image" && !selectedImage.trim()) return;
@@ -576,16 +591,19 @@ export default function HottextBuilderPage() {
       },
     };
 
+    // Use custom styles if provided, otherwise use default
+    const finalStyles = customStyles || {
+      ...defaultStyles,
+      ...typeSpecificStyles[activeTab],
+    };
+
     const newItem: HottextItem = {
       identifier: `HT${question.hottextItems.length + 1}`,
       content: {
         type: activeTab,
         value: contentValue,
       },
-      styles: {
-        ...defaultStyles,
-        ...typeSpecificStyles[activeTab],
-      },
+      styles: finalStyles,
       position: { x: 0, y: 0 },
     };
 
@@ -632,6 +650,19 @@ export default function HottextBuilderPage() {
           : item
       ),
     }));
+  };
+
+  const applyStylePreset = (identifier: string, preset: ButtonStylePreset) => {
+    setQuestion((prev) => ({
+      ...prev,
+      hottextItems: prev.hottextItems.map((item) =>
+        item.identifier === identifier
+          ? { ...item, styles: { ...item.styles, ...preset.styles } }
+          : item
+      ),
+    }));
+    setShowStylePresets(false);
+    setSelectedItemForStyle(null);
   };
 
   const startEditingHottext = (item: HottextItem) => {
@@ -1055,44 +1086,62 @@ export default function HottextBuilderPage() {
 
         <div className="w-full space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle>Import QTI XML</CardTitle>
+              <CardHeader 
+                className="cursor-pointer"
+                onClick={() => setIsImportExpanded(!isImportExpanded)}
+              >
+                <CardTitle className="flex items-center justify-between">
+                  <span>Import QTI XML</span>
+                  {isImportExpanded ? (
+                    <ChevronUp className="w-5 h-5" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5" />
+                  )}
+                </CardTitle>
+                <p className="text-sm text-gray-600 mt-1">
+                  {isImportExpanded 
+                    ? "Click to collapse XML import options" 
+                    : "Click to expand and import existing QTI XML files"
+                  }
+                </p>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="import-xml">Paste your QTI XML here</Label>
-                  <textarea
-                    id="import-xml"
-                    value={importXML}
-                    onChange={(e) => setImportXML(e.target.value)}
-                    placeholder="Paste your QTI XML content here..."
-                    className="w-full h-40 p-2 border rounded-md font-mono text-sm"
-                  />
-                </div>
-                <div className="flex items-center gap-4">
-                  <Button
-                    onClick={handleImportXML}
-                    disabled={!importXML.trim() || isImporting}
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    {isImporting ? "Importing..." : "Import XML"}
-                  </Button>
-                  <Label htmlFor="xml-upload" className="cursor-pointer">
-                    <Button variant="outline" disabled={isImporting}>
+              {isImportExpanded && (
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="import-xml">Paste your QTI XML here</Label>
+                    <textarea
+                      id="import-xml"
+                      value={importXML}
+                      onChange={(e) => setImportXML(e.target.value)}
+                      placeholder="Paste your QTI XML content here..."
+                      className="w-full h-40 p-2 border rounded-md font-mono text-sm"
+                    />
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <Button
+                      onClick={handleImportXML}
+                      disabled={!importXML.trim() || isImporting}
+                    >
                       <Upload className="w-4 h-4 mr-2" />
-                      {isImporting ? "Importing..." : "Upload XML File"}
+                      {isImporting ? "Importing..." : "Import XML"}
                     </Button>
-                  </Label>
-                  <Input
-                    id="xml-upload"
-                    type="file"
-                    accept=".xml"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    disabled={isImporting}
-                  />
-                </div>
-              </CardContent>
+                    <Label htmlFor="xml-upload" className="cursor-pointer">
+                      <Button variant="outline" disabled={isImporting}>
+                        <Upload className="w-4 h-4 mr-2" />
+                        {isImporting ? "Importing..." : "Upload XML File"}
+                      </Button>
+                    </Label>
+                    <Input
+                      id="xml-upload"
+                      type="file"
+                      accept=".xml"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      disabled={isImporting}
+                    />
+                  </div>
+                </CardContent>
+              )}
             </Card>
 
             <Card>
@@ -1217,6 +1266,32 @@ export default function HottextBuilderPage() {
                         >
                           <Underline className="h-4 w-4" />
                         </Toggle>
+                      </div>
+                      <div className="mt-2">
+                        <p className="text-sm text-gray-600 mb-2">Quick Style Presets:</p>
+                        <QuickStylePresets
+                          onApplyPreset={(preset) => {
+                            if (selectedText.trim()) {
+                              addHottextItem(preset.styles);
+                            }
+                          }}
+                          maxItems={6}
+                          showOnlyCategory="basic"
+                        />
+                        <div className="mt-2">
+                          <QuickStylePresets
+                            onApplyPreset={(preset) => {
+                              if (selectedText.trim()) {
+                                addHottextItem(preset.styles);
+                              }
+                            }}
+                            maxItems={4}
+                            showOnlyCategory="gradient"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Enter text above, then click a style to create a hottext item with that style.
+                        </p>
                       </div>
                     </div>
                   </TabsContent>
@@ -1362,6 +1437,17 @@ export default function HottextBuilderPage() {
                           </span>
                         </div>
                         <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedItemForStyle(item.identifier);
+                              setShowStylePresets(true);
+                            }}
+                            title="Apply Style Preset"
+                          >
+                            <Palette className="w-4 h-4" />
+                          </Button>
                           {editingHottextId === item.identifier ? (
                             <Button
                               variant="ghost"
@@ -1400,6 +1486,18 @@ export default function HottextBuilderPage() {
                 </p>
               </CardContent>
             </Card>
+
+            {/* Style Preset Modal */}
+            {showStylePresets && selectedItemForStyle && (
+              <ButtonStylePresets
+                onApplyPreset={(preset) => applyStylePreset(selectedItemForStyle, preset)}
+                onClose={() => {
+                  setShowStylePresets(false);
+                  setSelectedItemForStyle(null);
+                }}
+                title="Choose Button Style Preset"
+              />
+            )}
 
             <Card>
               <CardHeader>
@@ -1507,7 +1605,8 @@ export default function HottextBuilderPage() {
               }
               title="Incorrect Answer Feedback"
             />
-               <div className="space-y-6">
+
+           <div className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -1572,6 +1671,72 @@ export default function HottextBuilderPage() {
                 filename={`${question.identifier || "hottext-question"}.xml`}
               />
             )}
+
+            {/* Collapsible Style Presets Reference Card - Moved to bottom */}
+            <Card>
+              <CardHeader 
+                className="cursor-pointer"
+                onClick={() => setIsReferenceExpanded(!isReferenceExpanded)}
+              >
+                <CardTitle className="flex items-center justify-between">
+                  <span>Button Style Presets Reference</span>
+                  {isReferenceExpanded ? (
+                    <ChevronUp className="w-5 h-5" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5" />
+                  )}
+                </CardTitle>
+                <p className="text-sm text-gray-600 mt-1">
+                  {isReferenceExpanded 
+                    ? "Click to collapse button style reference" 
+                    : "Click to expand and copy HTML button styles for feedback blocks"
+                  }
+                </p>
+              </CardHeader>
+              {isReferenceExpanded && (
+                <CardContent>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Copy these HTML button styles to use in your feedback blocks:
+                  </p>
+                  <div className="space-y-4 max-h-96 overflow-y-auto">
+                    {buttonStylePresets.map((preset, index) => (
+                      <div key={index} className="border rounded-lg p-3">
+                        <div className="flex items-center gap-3 mb-2">
+                          <button
+                            style={preset.styles as React.CSSProperties}
+                            className="pointer-events-none"
+                          >
+                            {preset.preview}
+                          </button>
+                          <span className="font-medium">{preset.name}</span>
+                        </div>
+                        <div className="bg-gray-100 p-2 rounded font-mono text-xs overflow-x-auto">
+                          <code>
+                            {generateButtonHTML(preset)}
+                          </code>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-2"
+                          onClick={() => {
+                            navigator.clipboard.writeText(generateButtonHTML(preset));
+                          }}
+                        >
+                          Copy HTML
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      <strong>How to use:</strong> Copy the HTML code and paste it into your feedback content blocks. 
+                      You can change the button text to match your content.
+                    </p>
+                  </div>
+                </CardContent>
+              )}
+            </Card>
           </div>
         </div>
       </div>

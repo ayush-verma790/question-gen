@@ -253,7 +253,7 @@ export function generateMatchXML(question: MatchQuestion): string {
   const leftChoices = pairs
     .map((pair) => {
       const leftContent = renderContentBlocksToXML(pair.leftContentBlocks)
-      return `        <qti-simple-associable-choice identifier="${pair.leftId}" match-max="1">
+      return `        <qti-simple-associable-choice identifier="${pair.leftId}" match-max="${maxAssociations}">
 ${leftContent}
         </qti-simple-associable-choice>`
     })
@@ -262,7 +262,7 @@ ${leftContent}
   const rightChoices = pairs
     .map((pair) => {
       const rightContent = renderContentBlocksToXML(pair.rightContentBlocks)
-      return `        <qti-simple-associable-choice identifier="${pair.rightId}" match-max="2">
+      return `        <qti-simple-associable-choice identifier="${pair.rightId}" match-max="${maxAssociations}">
 ${rightContent}
         </qti-simple-associable-choice>`
     })

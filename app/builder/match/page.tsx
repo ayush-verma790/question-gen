@@ -488,13 +488,13 @@ export default function MatchBuilderPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 max-w-[80%]">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Match Question Builder</h1>
           <p className="text-gray-600">Create matching pair questions with rich multimedia content</p>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-8">
+        <div className="grid lg:grid-cols-1 gap-8">
           <div className="space-y-6">
             <Card>
               <CardHeader>
@@ -631,7 +631,9 @@ export default function MatchBuilderPage() {
             />
           </div>
 
-          <div className="space-y-6">
+         
+        </div>
+         <div className="space-y-6 mt-5">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -695,7 +697,6 @@ export default function MatchBuilderPage() {
               <XMLViewer xml={generatedXML} filename={`${question.identifier || "match-question"}.xml`} />
             )}
           </div>
-        </div>
       </div>
     </div>
   )

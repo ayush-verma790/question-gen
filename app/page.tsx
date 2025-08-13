@@ -29,6 +29,15 @@ const questionTypes = [
     color: "bg-blue-500",
   },
   {
+    id: "hottext-interaction",
+    title: "Hottext Interaction",
+    description:
+      "Interactive clickable text elements with rich formatting and styling",
+    icon: MousePointer,
+    href: "/builder/hottext-interaction",
+    color: "bg-blue-500",
+  },
+  {
     id: "choice",
     title: "Multiple Choice",
     description:

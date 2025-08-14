@@ -637,7 +637,7 @@ export function RichTextEditor({
         onMouseUp={handleSelection}
         onKeyUp={handleSelection}
         placeholder={placeholder}
-        className="min-h-32 resize-y"
+        className="min-h-72 resize-y"
         style={{ fontFamily: isHtmlMode ? "monospace" : "inherit" }}
       />
 

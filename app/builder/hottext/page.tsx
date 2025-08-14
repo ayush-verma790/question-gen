@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Trash2,
   Plus,
@@ -21,6 +22,8 @@ import {
   Palette,
   ChevronDown,
   ChevronUp,
+  MessageSquare,
+  Settings,
 } from "lucide-react";
 import { ContentBlockEditor } from "@/components/content-block-editor";
 import { XMLViewer } from "@/components/xml-viewer";

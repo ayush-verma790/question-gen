@@ -339,7 +339,7 @@ export function ContentBlockEditor({ blocks, onChange, title }: ContentBlockEdit
               </CardHeader>
 
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-1 gap-4">
                   <div className="space-y-3">
                     <div>
                       <Label>Content</Label>
@@ -457,10 +457,10 @@ export function ContentBlockEditor({ blocks, onChange, title }: ContentBlockEdit
                     )}
                   </div>
 
-                  <div>
+                  {/* <div>
                     <Label>Live Preview</Label>
                     <div className="border rounded p-4 bg-white min-h-32">{renderBlockPreview(block)}</div>
-                  </div>
+                  </div> */}
                 </div>
 
                 {/* Collapsible Design Section */}

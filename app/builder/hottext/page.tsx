@@ -1587,7 +1587,7 @@ export default function HottextBuilderPage() {
               </CardContent>
             </Card>
 
-            <ContentBlockEditor
+            {/* <ContentBlockEditor
               blocks={question.correctFeedbackBlocks}
               onChange={(blocks) =>
                 setQuestion((prev) => ({
@@ -1596,7 +1596,7 @@ export default function HottextBuilderPage() {
                 }))
               }
               title="Correct Answer Feedback"
-            />
+            /> */}
 
             <ContentBlockEditor
               blocks={question.incorrectFeedbackBlocks}

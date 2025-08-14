@@ -1607,7 +1607,7 @@ export default function TextEntryBuilderPage() {
             />
 
             {/* Feedback Blocks */}
-            <ContentBlockEditor
+            {/* <ContentBlockEditor
               blocks={question.correctFeedbackBlocks}
               onChange={(blocks) =>
                 setQuestion((prev) => ({
@@ -1616,7 +1616,7 @@ export default function TextEntryBuilderPage() {
                 }))
               }
               title="Correct Feedback"
-            />
+            /> */}
             <ContentBlockEditor
               blocks={question.incorrectFeedbackBlocks}
               onChange={(blocks) =>

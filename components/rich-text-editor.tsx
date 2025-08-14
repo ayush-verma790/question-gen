@@ -292,6 +292,16 @@ export function RichTextEditor({
     [value, onChange]
   );
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        insertAtCursor("\n<br/>");
+      }
+    },
+    [insertAtCursor]
+  );
+
   const insertMedia = useCallback(
     (type: "image" | "video" | "audio", url: string) => {
       let mediaTag = "";
@@ -636,6 +646,7 @@ export function RichTextEditor({
         onSelect={handleSelection}
         onMouseUp={handleSelection}
         onKeyUp={handleSelection}
+        onKeyDown={handleKeyDown}
         placeholder={placeholder}
         className="min-h-72 resize-y"
         style={{ fontFamily: isHtmlMode ? "monospace" : "inherit" }}

@@ -599,11 +599,11 @@ export default function OrderBuilderPage() {
               </CardContent>
             </Card>
 
-            <ContentBlockEditor
+            {/* <ContentBlockEditor
               blocks={question.correctFeedbackBlocks}
               onChange={(blocks) => setQuestion((prev) => ({ ...prev, correctFeedbackBlocks: blocks }))}
               title="Correct Answer Feedback"
-            />
+            /> */}
 
             <ContentBlockEditor
               blocks={question.incorrectFeedbackBlocks}

@@ -641,7 +641,7 @@ export default function ChoiceBuilderPage() {
             </CardContent>
           </Card>
 
-          <ContentBlockEditor
+          {/* <ContentBlockEditor
             blocks={question.correctFeedbackBlocks}
             onChange={(blocks) =>
               setQuestion((prev) => ({
@@ -650,7 +650,7 @@ export default function ChoiceBuilderPage() {
               }))
             }
             title="Correct Answer Feedback"
-          />
+          /> */}
 
           <ContentBlockEditor
             blocks={question.incorrectFeedbackBlocks}

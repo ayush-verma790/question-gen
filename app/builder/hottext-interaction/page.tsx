@@ -915,7 +915,7 @@ ${hottextElements}
                   <CardTitle className="text-lg">Feedback Messages</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div>
+                  {/* <div>
                     <Label className="text-sm font-medium">Correct Answer Feedback (Rich HTML Editor)</Label>
                     <RichTextEditor
                       value={question.correctFeedback}
@@ -934,7 +934,7 @@ ${hottextElements}
                         />
                       </div>
                     </div>
-                  </div>
+                  </div> */}
                   
                   <div className="border-t pt-6">
                     <Label className="text-sm font-medium">Incorrect Answer Feedback (Rich HTML Editor)</Label>

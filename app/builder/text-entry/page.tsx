@@ -1613,7 +1613,7 @@ export default function TextEntryBuilderPage() {
           )}
           {activeTab === 'feedbacks' && (
             <div className="space-y-6">
-              <ContentBlockEditor
+              {/* <ContentBlockEditor
                 blocks={question.correctFeedbackBlocks}
                 onChange={(blocks) =>
                   setQuestion((prev) => ({
@@ -1622,7 +1622,26 @@ export default function TextEntryBuilderPage() {
                   }))
                 }
                 title="Correct Feedback"
-              />
+              /> */}
+              {/* Preview for Correct Feedback */}
+              {/* <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-green-700">
+                    <Eye className="w-4 h-4" /> Correct Feedback Preview
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {question.correctFeedbackBlocks.length > 0 ? (
+                    question.correctFeedbackBlocks.map((block) => (
+                      <div key={block.id} className="mb-2 p-2 bg-green-50 rounded border border-green-100">
+                        <span dangerouslySetInnerHTML={{ __html: block.content.replace(/<br\s*\/?>/gi, '<br/>') }} />
+                      </div>
+                    ))
+                  ) : (
+                    <span className="text-gray-400">No correct feedback content.</span>
+                  )}
+                </CardContent>
+              </Card> */}
               <ContentBlockEditor
                 blocks={question.incorrectFeedbackBlocks}
                 onChange={(blocks) =>
@@ -1633,6 +1652,25 @@ export default function TextEntryBuilderPage() {
                 }
                 title="Incorrect Feedback"
               />
+              {/* Preview for Incorrect Feedback */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-red-700">
+                    <Eye className="w-4 h-4" /> Incorrect Feedback Preview
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {question.incorrectFeedbackBlocks.length > 0 ? (
+                    question.incorrectFeedbackBlocks.map((block) => (
+                      <div key={block.id} className="mb-2 p-2 bg-red-50 rounded border border-red-100">
+                        <span dangerouslySetInnerHTML={{ __html: block.content.replace(/<br\s*\/?>/gi, '<br/>') }} />
+                      </div>
+                    ))
+                  ) : (
+                    <span className="text-gray-400">No incorrect feedback content.</span>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           )}
           {activeTab === 'textentry' && (

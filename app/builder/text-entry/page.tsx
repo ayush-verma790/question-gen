@@ -527,10 +527,10 @@ const ContentBlockEditor = memo(
                     ref={(el) => {
                       textareaRefs.current[index] = el;
                     }}
-                    value={block.content}
+                    value={block.content.replace(/<br\s*\/?>/gi, '\n')}
                     placeholder="Enter text content here [1]"
                     onChange={(e) =>
-                      updateBlock(index, { ...block, content: e.target.value })
+                      updateBlock(index, { ...block, content: e.target.value.replace(/\n/g, '<br/>') })
                     }
                     onSelect={() => handleTextSelection(index)}
                     onFocus={() => setActiveTextareaIndex(index)}
@@ -561,11 +561,11 @@ const ContentBlockEditor = memo(
                     <div>
                       <Label>Content URL</Label>
                       <Input
-                        value={block.content}
+                        value={block.content.replace(/<br\s*\/?>/gi, ' ')}
                         onChange={(e) =>
                           updateBlock(index, {
                             ...block,
-                            content: e.target.value,
+                            content: e.target.value.replace(/ +/g, '<br/>'),
                           })
                         }
                       />
@@ -1256,10 +1256,12 @@ function parseTextEntryXML(xmlString: string): TextEntryQuestion {
 
 // Main Component
 export default function TextEntryBuilderPage() {
+  // ...existing state and logic...
   const [xmlInput, setXmlInput] = useState("");
   const [parseError, setParseError] = useState("");
   const [showXmlImport, setShowXmlImport] = useState(false);
-  
+  const [activeTab, setActiveTab] = useState<'question'|'feedbacks'|'textentry'|'preview'>('question');
+
   const [question, setQuestion] = useState<TextEntryQuestion>({
     identifier: "text-entry-question-1",
     title: "Sample Text Entry Question",
@@ -1282,20 +1284,7 @@ export default function TextEntryBuilderPage() {
         attributes: {},
       },
     ],
-    textEntryBoxes: [
-      // {
-      //   id: "box1",
-      //   responseId: "RESPONSE1",
-      //   expectedLength: 20,
-      //   widthClass: "qti-input-width-5",
-      // },
-      // {
-      //   id: "box2",
-      //   responseId: "RESPONSE2",
-      //   expectedLength: 2,
-      //   widthClass: "qti-input-width-3",
-      // },
-    ],
+    textEntryBoxes: [],
     correctAnswers: ["", ""],
     caseSensitive: false,
     correctFeedbackBlocks: [
@@ -1331,12 +1320,13 @@ export default function TextEntryBuilderPage() {
       },
     ],
   });
-
   const [generatedXML, setGeneratedXML] = useState("");
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [cursorPosition, setCursorPosition] = useState<number | null>(null);
 
-  // XML Import handlers
+  // ...existing handlers (handleParseXML, handleClearXMLInput, insertTextEntryBox, updateBoxConfig, removeBox, updateAnswer, etc.)...
+  // (No changes to logic, just move them above)
+
   const handleParseXML = useCallback(() => {
     try {
       const parsedQuestion = parseTextEntryXML(xmlInput);
@@ -1354,7 +1344,6 @@ export default function TextEntryBuilderPage() {
     setParseError("");
   }, []);
 
-  // Optimized text box insertion
   const insertTextEntryBox = useCallback(
     (blockId: string) => {
       setQuestion((prev) => {
@@ -1397,7 +1386,6 @@ export default function TextEntryBuilderPage() {
     [cursorPosition]
   );
 
-  // Update box configuration
   const updateBoxConfig = useCallback((updatedBox: TextEntryBox) => {
     setQuestion((prev) => ({
       ...prev,
@@ -1407,7 +1395,6 @@ export default function TextEntryBuilderPage() {
     }));
   }, []);
 
-  // Remove box
   const removeBox = useCallback((boxId: string) => {
     setQuestion((prev) => {
       const boxIndex = prev.textEntryBoxes.findIndex((b) => b.id === boxId);
@@ -1425,7 +1412,6 @@ export default function TextEntryBuilderPage() {
     });
   }, []);
 
-  // Update answers
   const updateAnswer = useCallback((index: number, value: string) => {
     setQuestion((prev) => ({
       ...prev,
@@ -1435,7 +1421,6 @@ export default function TextEntryBuilderPage() {
     }));
   }, []);
 
-  // Generate XML when question changes
   const xml = useMemo(() => {
     if (question.identifier && question.promptBlocks.length > 0) {
       return generateTextEntryXML(question);
@@ -1447,7 +1432,6 @@ export default function TextEntryBuilderPage() {
     setGeneratedXML(xml);
   }, [xml]);
 
-  // Add CSS for width classes
   useEffect(() => {
     const style = document.createElement("style");
     style.textContent = `
@@ -1470,197 +1454,229 @@ export default function TextEntryBuilderPage() {
     };
   }, []);
 
+  // --- UI with left-side vertical tabs ---
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Text Entry Question Builder
-          </h1>
-          <p className="text-gray-600">
-            Create questions with inline text entry boxes
-          </p>
+      <div className="container mx-auto px-4 py-8 flex">
+        {/* Left vertical nav */}
+        <div className="w-56 flex-shrink-0 pr-6">
+          <div className="flex flex-col gap-2">
+            <button
+              className={`text-left px-4 py-2 rounded font-medium transition-colors ${activeTab === 'question' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
+              onClick={() => setActiveTab('question')}
+            >
+              Question
+            </button>
+             <button
+              className={`text-left px-4 py-2 rounded font-medium transition-colors ${activeTab === 'textentry' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
+              onClick={() => setActiveTab('textentry')}
+            >
+              Text Entry
+            </button>
+            <button
+              className={`text-left px-4 py-2 rounded font-medium transition-colors ${activeTab === 'feedbacks' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
+              onClick={() => setActiveTab('feedbacks')}
+            >
+              Feedbacks
+            </button>
+           
+            <button
+              className={`text-left px-4 py-2 rounded font-medium transition-colors ${activeTab === 'preview' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
+              onClick={() => setActiveTab('preview')}
+            >
+              Preview
+            </button>
+          </div>
         </div>
-
-        {/* XML Import Section */}
-        <div className="mb-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <Upload className="w-5 h-5" />
-                  Import from XML
-                </span>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowXmlImport(!showXmlImport)}
-                >
-                  {showXmlImport ? "Hide Import" : "Show Import"}
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            {showXmlImport && (
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="xml-input">Paste QTI Text Entry XML</Label>
-                  <Textarea
-                    id="xml-input"
-                    value={xmlInput}
-                    onChange={(e) => setXmlInput(e.target.value)}
-                    placeholder="Paste your QTI XML here..."
-                    className="min-h-32 font-mono text-sm"
-                  />
-                </div>
-                {parseError && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-red-700">
-                      <FileText className="w-4 h-4" />
-                      <span className="font-medium">Parse Error:</span>
-                    </div>
-                    <p className="text-red-600 text-sm mt-1">{parseError}</p>
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <Button onClick={handleParseXML} disabled={!xmlInput.trim()}>
-                    Parse & Load XML
-                  </Button>
-                  <Button variant="outline" onClick={handleClearXMLInput}>
-                    Clear
-                  </Button>
-                  <div className="text-sm text-gray-500 flex items-center ml-auto">
-                    💡 This will replace your current question with the imported one
-                  </div>
-                </div>
-              </CardContent>
-            )}
-          </Card>
-        </div>
-
-        <div className="grid lg:grid-cols-2 gap-8">
-          <div className="space-y-6">
-            {/* Question Details */}
+        {/* Right content area */}
+        <div className="flex-1">
+          {/* XML Import Section always on top */}
+          <div className="mb-8">
             <Card>
               <CardHeader>
-                <CardTitle>Question Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="identifier">Question ID</Label>
-                  <Input
-                    id="identifier"
-                    value={question.identifier}
-                    onChange={(e) =>
-                      setQuestion((prev) => ({
-                        ...prev,
-                        identifier: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="title">Title</Label>
-                  <Input
-                    id="title"
-                    value={question.title}
-                    onChange={(e) =>
-                      setQuestion((prev) => ({
-                        ...prev,
-                        title: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="case-sensitive"
-                    checked={question.caseSensitive}
-                    onCheckedChange={(checked) =>
-                      setQuestion((prev) => ({
-                        ...prev,
-                        caseSensitive: !!checked,
-                      }))
-                    }
-                  />
-                  <Label htmlFor="case-sensitive">Case sensitive</Label>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Question Prompt */}
-            <ContentBlockEditor
-              blocks={question.promptBlocks}
-              onChange={(blocks) =>
-                setQuestion((prev) => ({ ...prev, promptBlocks: blocks }))
-              }
-              title="Question Prompt"
-              allowTextBox={true}
-              onInsertTextBox={insertTextEntryBox}
-            />
-
-            {/* Text Box Configuration */}
-            <TextBoxConfiguration
-              textEntryBoxes={question.textEntryBoxes}
-              correctAnswers={question.correctAnswers}
-              onUpdateBox={updateBoxConfig}
-              onRemoveBox={removeBox}
-              onUpdateAnswer={updateAnswer}
-            />
-
-            {/* Feedback Blocks */}
-            {/* <ContentBlockEditor
-              blocks={question.correctFeedbackBlocks}
-              onChange={(blocks) =>
-                setQuestion((prev) => ({
-                  ...prev,
-                  correctFeedbackBlocks: blocks,
-                }))
-              }
-              title="Correct Feedback"
-            /> */}
-            <ContentBlockEditor
-              blocks={question.incorrectFeedbackBlocks}
-              onChange={(blocks) =>
-                setQuestion((prev) => ({
-                  ...prev,
-                  incorrectFeedbackBlocks: blocks,
-                }))
-              }
-              title="Incorrect Feedback"
-            />
-          </div>
-
-          <div className="space-y-6">
-            {/* Preview */}
-            <QuestionPreview
-              promptBlocks={question.promptBlocks}
-              textEntryBoxes={question.textEntryBoxes}
-              correctAnswers={question.correctAnswers}
-              onAnswerChange={updateAnswer}
-            />
-
-            {/* XML Output */}
-            {generatedXML && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>QTI XML Output</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <pre className="text-xs p-4 bg-gray-800 text-gray-100 rounded overflow-auto max-h-[500px]">
-                    {generatedXML}
-                  </pre>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Upload className="w-5 h-5" />
+                    Import from XML
+                  </span>
                   <Button
                     variant="outline"
-                    className="mt-4"
-                    onClick={() => {
-                      navigator.clipboard.writeText(generatedXML);
-                    }}
+                    onClick={() => setShowXmlImport(!showXmlImport)}
                   >
-                    Copy XML
+                    {showXmlImport ? "Hide Import" : "Show Import"}
                   </Button>
+                </CardTitle>
+              </CardHeader>
+              {showXmlImport && (
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="xml-input">Paste QTI Text Entry XML</Label>
+                    <Textarea
+                      id="xml-input"
+                      value={xmlInput}
+                      onChange={(e) => setXmlInput(e.target.value)}
+                      placeholder="Paste your QTI XML here..."
+                      className="min-h-32 font-mono text-sm"
+                    />
+                  </div>
+                  {parseError && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                      <div className="flex items-center gap-2 text-red-700">
+                        <FileText className="w-4 h-4" />
+                        <span className="font-medium">Parse Error:</span>
+                      </div>
+                      <p className="text-red-600 text-sm mt-1">{parseError}</p>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <Button onClick={handleParseXML} disabled={!xmlInput.trim()}>
+                      Parse & Load XML
+                    </Button>
+                    <Button variant="outline" onClick={handleClearXMLInput}>
+                      Clear
+                    </Button>
+                    <div className="text-sm text-gray-500 flex items-center ml-auto">
+                      💡 This will replace your current question with the imported one
+                    </div>
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+          </div>
+
+          {/* Main content by tab */}
+          {activeTab === 'question' && (
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Question Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="identifier">Question ID</Label>
+                    <Input
+                      id="identifier"
+                      value={question.identifier}
+                      onChange={(e) =>
+                        setQuestion((prev) => ({
+                          ...prev,
+                          identifier: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="title">Title</Label>
+                    <Input
+                      id="title"
+                      value={question.title}
+                      onChange={(e) =>
+                        setQuestion((prev) => ({
+                          ...prev,
+                          title: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="case-sensitive"
+                      checked={question.caseSensitive}
+                      onCheckedChange={(checked) =>
+                        setQuestion((prev) => ({
+                          ...prev,
+                          caseSensitive: !!checked,
+                        }))
+                      }
+                    />
+                    <Label htmlFor="case-sensitive">Case sensitive</Label>
+                  </div>
                 </CardContent>
               </Card>
-            )}
-          </div>
+              {/* Question Prompt and Preview */}
+              <ContentBlockEditor
+                blocks={question.promptBlocks}
+                onChange={(blocks) =>
+                  setQuestion((prev) => ({ ...prev, promptBlocks: blocks }))
+                }
+                title="Question Prompt"
+                allowTextBox={true}
+                onInsertTextBox={insertTextEntryBox}
+              />
+              <QuestionPreview
+                promptBlocks={question.promptBlocks}
+                textEntryBoxes={question.textEntryBoxes}
+                correctAnswers={question.correctAnswers}
+                onAnswerChange={updateAnswer}
+              />
+            </div>
+          )}
+          {activeTab === 'feedbacks' && (
+            <div className="space-y-6">
+              <ContentBlockEditor
+                blocks={question.correctFeedbackBlocks}
+                onChange={(blocks) =>
+                  setQuestion((prev) => ({
+                    ...prev,
+                    correctFeedbackBlocks: blocks,
+                  }))
+                }
+                title="Correct Feedback"
+              />
+              <ContentBlockEditor
+                blocks={question.incorrectFeedbackBlocks}
+                onChange={(blocks) =>
+                  setQuestion((prev) => ({
+                    ...prev,
+                    incorrectFeedbackBlocks: blocks,
+                  }))
+                }
+                title="Incorrect Feedback"
+              />
+            </div>
+          )}
+          {activeTab === 'textentry' && (
+            <div className="space-y-6">
+              <TextBoxConfiguration
+                textEntryBoxes={question.textEntryBoxes}
+                correctAnswers={question.correctAnswers}
+                onUpdateBox={updateBoxConfig}
+                onRemoveBox={removeBox}
+                onUpdateAnswer={updateAnswer}
+              />
+            </div>
+          )}
+          {activeTab === 'preview' && (
+            <div className="space-y-6">
+              <QuestionPreview
+                promptBlocks={question.promptBlocks}
+                textEntryBoxes={question.textEntryBoxes}
+                correctAnswers={question.correctAnswers}
+                onAnswerChange={updateAnswer}
+              />
+              {generatedXML && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>QTI XML Output</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <pre className="text-xs p-4 bg-gray-800 text-gray-100 rounded overflow-auto max-h-[500px]">
+                      {generatedXML}
+                    </pre>
+                    <Button
+                      variant="outline"
+                      className="mt-4"
+                      onClick={() => {
+                        navigator.clipboard.writeText(generatedXML);
+                      }}
+                    >
+                      Copy XML
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

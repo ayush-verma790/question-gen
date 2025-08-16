@@ -57,11 +57,25 @@ export function RichTextEditor({
     }
   }, [value]);
 
+
+  // Helper to convert line breaks to <br> for internal value
+  const linebreaksToBr = (text: string) => {
+    return text.replace(/\n/g, '<br/>');
+  };
+
+  // Helper to convert <br> back to line breaks for textarea
+  const brToLinebreaks = (text: string) => {
+    // Only match <br/> or <br /> or <br    />
+    return text.replace(/<br\s*\/?>/gi, '\n');
+  };
+
   const handleSelection = useCallback(() => {
     if (textareaRef.current) {
       const start = textareaRef.current.selectionStart;
       const end = textareaRef.current.selectionEnd;
-      const selected = value.substring(start, end);
+      // Use brToLinebreaks to get the correct selection
+      const plainValue = brToLinebreaks(value);
+      const selected = plainValue.substring(start, end);
 
       setSelectedText(selected);
       setSelectionStart(start);
@@ -73,43 +87,37 @@ export function RichTextEditor({
     (openTag: string, closeTag = "") => {
       if (!textareaRef.current) return;
 
+      // Work with plain text (line breaks instead of <br>)
+      const plainValue = brToLinebreaks(value);
       const start = textareaRef.current.selectionStart;
       const end = textareaRef.current.selectionEnd;
-      const selectedText = value.substring(start, end);
+      const selectedText = plainValue.substring(start, end);
 
+      let newText;
       if (selectedText) {
-        const newText =
-          value.substring(0, start) +
+        newText =
+          plainValue.substring(0, start) +
           openTag +
           selectedText +
           closeTag +
-          value.substring(end);
-        onChange(newText);
-
-        setTimeout(() => {
-          if (textareaRef.current) {
-            textareaRef.current.focus();
-            textareaRef.current.setSelectionRange(
-              start + openTag.length,
-              end + openTag.length
-            );
-          }
-        }, 0);
+          plainValue.substring(end);
       } else {
-        const newText =
-          value.substring(0, start) + openTag + closeTag + value.substring(end);
-        onChange(newText);
-
-        setTimeout(() => {
-          if (textareaRef.current) {
-            textareaRef.current.focus();
-            textareaRef.current.setSelectionRange(
-              start + openTag.length,
-              start + openTag.length
-            );
-          }
-        }, 0);
+        newText =
+          plainValue.substring(0, start) + openTag + closeTag + plainValue.substring(end);
       }
+      // Convert line breaks to <br> for internal value
+      const brText = linebreaksToBr(newText);
+      onChange(brText);
+
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          textareaRef.current.setSelectionRange(
+            start + openTag.length,
+            selectedText ? end + openTag.length : start + openTag.length
+          );
+        }
+      }, 0);
     },
     [value, onChange]
   );
@@ -273,11 +281,15 @@ export function RichTextEditor({
     (text: string) => {
       if (!textareaRef.current) return;
 
+      // Work with plain text (line breaks instead of <br>)
+      const plainValue = brToLinebreaks(value);
       const start = textareaRef.current.selectionStart;
       const end = textareaRef.current.selectionEnd;
-      const newText = value.substring(0, start) + text + value.substring(end);
+      const newText = plainValue.substring(0, start) + text + plainValue.substring(end);
 
-      onChange(newText);
+      // Convert line breaks to <br> for internal value
+      const brText = linebreaksToBr(newText);
+      onChange(brText);
 
       setTimeout(() => {
         if (textareaRef.current) {
@@ -292,15 +304,8 @@ export function RichTextEditor({
     [value, onChange]
   );
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        insertAtCursor("\n<br/>");
-      }
-    },
-    [insertAtCursor]
-  );
+  // No need to override Enter, let textarea handle it
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {}, []);
 
   const insertMedia = useCallback(
     (type: "image" | "video" | "audio", url: string) => {
@@ -641,8 +646,11 @@ export function RichTextEditor({
 
       <Textarea
         ref={textareaRef}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        value={brToLinebreaks(value)}
+        onChange={(e) => {
+          // Convert line breaks to <br> for internal value
+          onChange(linebreaksToBr(e.target.value));
+        }}
         onSelect={handleSelection}
         onMouseUp={handleSelection}
         onKeyUp={handleSelection}
@@ -655,9 +663,13 @@ export function RichTextEditor({
       {!isHtmlMode && value && (
         <div className="p-4 border rounded-lg bg-white">
           <p className="text-sm text-gray-600 mb-2">Live Preview:</p>
-          <div dangerouslySetInnerHTML={{ __html: value }} />
+          <div
+            className="rich-preview"
+            dangerouslySetInnerHTML={{ __html: value }}
+          />
         </div>
       )}
+
 
       {selectedText && (
         <div className="text-xs text-gray-500">

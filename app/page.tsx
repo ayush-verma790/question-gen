@@ -79,6 +79,14 @@ const questionTypes = [
     href: "/builder/gap-match",
     color: "bg-red-500",
   },
+  {
+    id: "ALL",
+    title: "All Questions",
+    description: "All question types with rich content and flexible layouts",
+    icon: Type,
+    href: "/builder/mix",
+    color: "bg-red-500",
+  },
 ];
 
 export default function HomePage() {

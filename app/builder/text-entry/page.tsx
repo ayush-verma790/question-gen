@@ -245,32 +245,43 @@ const ContentBlockEditor = memo(
       const textarea = textareaRefs.current[textareaIndex];
       const block = blocks[textareaIndex];
 
-      // Get current cursor position and selection
-      const start = textarea.selectionStart || 0;
-      const end = textarea.selectionEnd || 0;
-      const hasSelection = start !== end;
+      // Get current cursor position and selection from textarea
+      const textareaStart = textarea.selectionStart || 0;
+      const textareaEnd = textarea.selectionEnd || 0;
+      const hasSelection = textareaStart !== textareaEnd;
+      const textareaValue = textarea.value;
 
-      // Get text parts
-      const beforeCursor = block.content.substring(0, start);
+      // Convert textarea coordinates to block content coordinates
+      const convertTextareaToBlockPosition = (pos: number) => {
+        const textBeforePos = textareaValue.substring(0, pos);
+        const newlinesBeforePos = (textBeforePos.match(/\n/g) || []).length;
+        return textBeforePos.length + (newlinesBeforePos * 4); // 4 = difference between <br/> and \n
+      };
+
+      const blockStart = convertTextareaToBlockPosition(textareaStart);
+      const blockEnd = convertTextareaToBlockPosition(textareaEnd);
+
+      // Get text parts from block content
+      const beforeCursor = block.content.substring(0, blockStart);
       const selectedOrEmpty = hasSelection
-        ? block.content.substring(start, end)
+        ? block.content.substring(blockStart, blockEnd)
         : "";
-      const afterCursor = block.content.substring(end);
+      const afterCursor = block.content.substring(blockEnd);
 
       // Create the HTML tag to insert
       let htmlToInsert = "";
-      let newCursorPosition = start;
+      let newBlockCursorPosition = blockStart;
 
       if (isSelfClosing) {
         // For self-closing tags like <br />, <hr />
         htmlToInsert = extraAttrs ? `<${tag} ${extraAttrs} />` : `<${tag} />`;
-        newCursorPosition = start + htmlToInsert.length;
+        newBlockCursorPosition = blockStart + htmlToInsert.length;
       } else if (hasSelection) {
         // If text is selected, wrap it
         htmlToInsert = extraAttrs
           ? `<${tag} ${extraAttrs}>${selectedOrEmpty}</${tag}>`
           : `<${tag}>${selectedOrEmpty}</${tag}>`;
-        newCursorPosition = start + htmlToInsert.length;
+        newBlockCursorPosition = blockStart + htmlToInsert.length;
       } else {
         // If no selection, insert opening and closing tags
         htmlToInsert = extraAttrs
@@ -280,7 +291,7 @@ const ContentBlockEditor = memo(
         const openingTagLength = extraAttrs
           ? `<${tag} ${extraAttrs}>`.length
           : `<${tag}>`.length;
-        newCursorPosition = start + openingTagLength;
+        newBlockCursorPosition = blockStart + openingTagLength;
       }
 
       // Create new content
@@ -292,10 +303,19 @@ const ContentBlockEditor = memo(
         content: newContent,
       });
 
-      // Focus and position cursor
+      // Focus and position cursor - convert back to textarea coordinates
       setTimeout(() => {
         textarea.focus();
-        textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+        
+        // Convert block position back to textarea position
+        const convertBlockToTextareaPosition = (blockPos: number) => {
+          const contentUpToPos = newContent.substring(0, blockPos);
+          const brTagsInContent = (contentUpToPos.match(/<br\s*\/?>/gi) || []).length;
+          return contentUpToPos.length - (brTagsInContent * 4);
+        };
+        
+        const newTextareaCursorPosition = convertBlockToTextareaPosition(newBlockCursorPosition);
+        textarea.setSelectionRange(newTextareaCursorPosition, newTextareaCursorPosition);
       }, 50);
     };
 
@@ -327,9 +347,21 @@ const ContentBlockEditor = memo(
       const textarea = textareaRefs.current[activeTextareaIndex];
       if (!textarea) return;
 
-      const cursorPos = textarea.selectionStart || 0;
-      const before = block.content.substring(0, cursorPos);
-      const after = block.content.substring(cursorPos);
+      // Get cursor position from textarea (which shows \n instead of <br/>)
+      const textareaCursorPos = textarea.selectionStart || 0;
+      const textareaValue = textarea.value;
+      
+      // Convert cursor position from textarea coordinates to block content coordinates
+      // Count how many \n characters are before the cursor in textarea
+      const newlinesBeforeCursor = (textareaValue.substring(0, textareaCursorPos).match(/\n/g) || []).length;
+      
+      // In block content, each \n becomes <br/> (5 characters instead of 1)
+      // So we need to adjust the cursor position
+      const textBeforeCursor = textareaValue.substring(0, textareaCursorPos);
+      const adjustedCursorPos = textBeforeCursor.length + (newlinesBeforeCursor * 4); // 4 = length difference between <br/> and \n
+      
+      const before = block.content.substring(0, adjustedCursorPos);
+      const after = block.content.substring(adjustedCursorPos);
 
       let mediaTag = "";
 
@@ -353,8 +385,11 @@ const ContentBlockEditor = memo(
       // Focus back to textarea and position cursor after inserted content
       setTimeout(() => {
         textarea.focus();
-        const newCursorPos = before.length + mediaTag.length;
-        textarea.setSelectionRange(newCursorPos, newCursorPos);
+        // Convert back to textarea coordinates for cursor positioning
+        const newContentUpToCursor = before + mediaTag;
+        const brTagsInNewContent = (newContentUpToCursor.match(/<br\s*\/?>/gi) || []).length;
+        const newTextareaCursorPos = newContentUpToCursor.length - (brTagsInNewContent * 4);
+        textarea.setSelectionRange(newTextareaCursorPos, newTextareaCursorPos);
       }, 50);
 
       setShowMediaModal(false);
@@ -370,9 +405,17 @@ const ContentBlockEditor = memo(
       const textarea = textareaRefs.current[activeTextareaIndex];
       if (!textarea) return;
 
-      const cursorPos = textarea.selectionStart || 0;
-      const before = block.content.substring(0, cursorPos);
-      const after = block.content.substring(cursorPos);
+      // Get cursor position from textarea (which shows \n instead of <br/>)
+      const textareaCursorPos = textarea.selectionStart || 0;
+      const textareaValue = textarea.value;
+      
+      // Convert cursor position from textarea coordinates to block content coordinates
+      const newlinesBeforeCursor = (textareaValue.substring(0, textareaCursorPos).match(/\n/g) || []).length;
+      const textBeforeCursor = textareaValue.substring(0, textareaCursorPos);
+      const adjustedCursorPos = textBeforeCursor.length + (newlinesBeforeCursor * 4);
+      
+      const before = block.content.substring(0, adjustedCursorPos);
+      const after = block.content.substring(adjustedCursorPos);
 
       updateBlock(activeTextareaIndex, {
         ...block,
@@ -382,8 +425,11 @@ const ContentBlockEditor = memo(
       // Focus back to textarea and position cursor after inserted content
       setTimeout(() => {
         textarea.focus();
-        const newCursorPos = before.length + buttonHTML.length;
-        textarea.setSelectionRange(newCursorPos, newCursorPos);
+        // Convert back to textarea coordinates for cursor positioning
+        const newContentUpToCursor = before + buttonHTML;
+        const brTagsInNewContent = (newContentUpToCursor.match(/<br\s*\/?>/gi) || []).length;
+        const newTextareaCursorPos = newContentUpToCursor.length - (brTagsInNewContent * 4);
+        textarea.setSelectionRange(newTextareaCursorPos, newTextareaCursorPos);
       }, 50);
     };
 

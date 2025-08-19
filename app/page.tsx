@@ -15,6 +15,7 @@ import {
   Shuffle,
   Type,
   ArrowRight,
+  FileText,
 } from "lucide-react";
 import { Header } from "@/components/header";
 
@@ -102,6 +103,44 @@ export default function HomePage() {
             Create interactive assessment questions with rich content,
             multimedia support, and perfect formatting preservation. Generate
             QTI 3.0 compliant XML for all major question types.
+          </p>
+        </div>
+
+        {/* XML Parser Section */}
+        <div className="max-w-4xl mx-auto mb-12">
+          <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-lg bg-blue-600 text-white">
+                  <FileText className="w-6 h-6" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl text-blue-900">
+                    XML Parser & Router
+                  </CardTitle>
+                  <CardDescription className="text-blue-700">
+                    Already have QTI XML? Paste it and get automatically redirected to the appropriate builder with prefilled data
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Link href="/xml-parser">
+                <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
+                  Parse XML & Redirect
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-semibold text-gray-800 mb-2">
+            Or Create New Questions
+          </h2>
+          <p className="text-gray-600">
+            Choose a question type to start building from scratch
           </p>
         </div>
 

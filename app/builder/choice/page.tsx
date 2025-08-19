@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -183,6 +184,9 @@ function parseMultipleChoiceXML(xmlString: string): MultipleChoiceQuestion {
 }
 
 export default function ChoiceBuilderPage() {
+  const searchParams = useSearchParams();
+  const fromXML = searchParams.get("fromXML");
+  
   const [question, setQuestion] = useState<MultipleChoiceQuestion>({
     identifier: "choice-question-1",
     title: "Sample Multiple Choice Question",
@@ -227,6 +231,27 @@ export default function ChoiceBuilderPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [importXML, setImportXML] = useState("");
   const [showFeedback, setShowFeedback] = useState(false);
+
+  // Handle XML data from XML parser route
+  useEffect(() => {
+    if (fromXML === "true") {
+      const parsedXML = sessionStorage.getItem("parsedXML");
+      const xmlType = sessionStorage.getItem("xmlType");
+      
+      if (parsedXML && xmlType === "choice") {
+        try {
+          const parsedQuestion = parseMultipleChoiceXML(parsedXML);
+          setQuestion(parsedQuestion);
+          // Clear the stored data
+          sessionStorage.removeItem("parsedXML");
+          sessionStorage.removeItem("xmlType");
+        } catch (error) {
+          console.error("Error parsing XML from router:", error);
+          alert("Error parsing the XML data. Please check the format.");
+        }
+      }
+    }
+  }, [fromXML]);
 
   useEffect(() => {
     if (

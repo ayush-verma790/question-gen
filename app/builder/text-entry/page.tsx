@@ -8,6 +8,7 @@ import React, {
   memo,
   useRef,
 } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,21 +27,11 @@ import {
   Image,
   Video,
   Music,
-  Bold,
-  Italic,
-  Underline,
-  Heading1,
-  Heading2,
-  Pilcrow,
-  Type,
-  List,
-  ListOrdered,
-  Link,
-  Palette,
 } from "lucide-react";
 import { ButtonSuggestions } from "@/components/button-suggestions";
 import { PreviewRenderer } from "@/components/preview-renderer";
-import { useXMLGeneration } from "@/hooks/use-xml-generation"; // Types
+import { useXMLGeneration } from "@/hooks/use-xml-generation";
+import { RichTextEditor } from "@/rich-text-editor"; // Types
 type ContentBlock = {
   id: string;
   type: "text" | "image" | "video" | "audio";
@@ -781,23 +772,25 @@ const ContentBlockEditor = memo(
                   {/* Button Suggestions Section */}
                   <div className="mt-4">
                     <ButtonSuggestions
-                      onSuggestionClick={handleButtonSuggestion}
+                      onSuggestionClick={(buttonHTML) => {
+                        const currentContent = block.content || "";
+                        const newContent = currentContent + " " + buttonHTML;
+                        updateBlock(index, {
+                          ...block,
+                          content: newContent,
+                        });
+                      }}
                       className=""
                       size="md"
                       defaultCollapsed={true}
                     />
                   </div>
 
-                  <div className="text-xs text-gray-500 mt-3 bg-gray-50 px-3 py-2 rounded-lg border-l-4 border-gray-300">
-                    <strong>💡 Pro Tips:</strong> Use HTML tags like &lt;br&gt;,
-                    &lt;strong&gt;, &lt;p&gt;, etc. • Select text and click
-                    formatting buttons to wrap it • Click buttons without
-                    selection to insert empty tags at cursor • Use button
-                    suggestions above for quick interactive elements •
-                    <strong>
-                      {" "}
-                      Select an &lt;img&gt; tag to edit its properties
-                    </strong>
+                  <div className="text-xs text-gray-500 mt-3 bg-blue-50 px-3 py-2 rounded-lg border-l-4 border-blue-300">
+                    <strong>✅ Formatting Fixed:</strong> Use ONLY the rich text editor toolbar above for formatting • 
+                    Click Bold, Italic, Lists, etc. in the toolbar • 
+                    Switch between HTML and Visual modes • 
+                    The cursor positioning issues are now resolved!
                   </div>
                 </div>
               ) : (
@@ -1624,6 +1617,9 @@ function parseTextEntryXML(xmlString: string): TextEntryQuestion {
 
 // Main Component
 export default function TextEntryBuilderPage() {
+  const searchParams = useSearchParams();
+  const fromXML = searchParams.get("fromXML");
+  
   // ...existing state and logic...
   const [xmlInput, setXmlInput] = useState("");
   const [parseError, setParseError] = useState("");
@@ -1807,6 +1803,27 @@ export default function TextEntryBuilderPage() {
   useEffect(() => {
     setGeneratedXML(xml);
   }, [xml]);
+
+  // Handle XML data from XML parser route
+  useEffect(() => {
+    if (fromXML === "true") {
+      const parsedXML = sessionStorage.getItem("parsedXML");
+      const xmlType = sessionStorage.getItem("xmlType");
+      
+      if (parsedXML && xmlType === "text-entry") {
+        try {
+          const parsedQuestion = parseTextEntryXML(parsedXML);
+          setQuestion(parsedQuestion);
+          // Clear the stored data
+          sessionStorage.removeItem("parsedXML");
+          sessionStorage.removeItem("xmlType");
+        } catch (error) {
+          console.error("Error parsing XML from router:", error);
+          setParseError("Error parsing the XML data. Please check the format.");
+        }
+      }
+    }
+  }, [fromXML]);
 
   // Auto-generate XML for preview when question changes
   const handleGenerateXMLForPreview = useCallback(async () => {

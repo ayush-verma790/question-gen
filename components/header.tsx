@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Upload } from "lucide-react";
+import { Upload, FileText } from "lucide-react";
 
 export function Header() {
   return (
@@ -17,13 +17,21 @@ export function Header() {
             <span className="text-xl font-bold text-gray-900">QTI Generator</span>
           </Link>
 
-          {/* Upload Button */}
-          <Link href="/upload">
-            <Button className="flex items-center gap-2">
-              <Upload className="w-4 h-4" />
-              Upload Files
-            </Button>
-          </Link>
+          {/* Navigation Links */}
+          <div className="flex items-center gap-3">
+            <Link href="/xml-parser">
+              <Button variant="outline" className="flex items-center gap-2">
+                <FileText className="w-4 h-4" />
+                XML Parser
+              </Button>
+            </Link>
+            <Link href="/upload">
+              <Button className="flex items-center gap-2">
+                <Upload className="w-4 h-4" />
+                Upload Files
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     </header>

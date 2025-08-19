@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -134,7 +134,7 @@ const parseOrderXML = (xmlString: string): OrderQuestion | null => {
   }
 }
 
-export default function OrderBuilderPage() {
+function OrderBuilderPageContent() {
   const searchParams = useSearchParams();
   const fromXML = searchParams.get("fromXML");
   
@@ -694,5 +694,30 @@ export default function OrderBuilderPage() {
           </div>
       </div>
     </div>
+  )
+}
+
+// Loading component for Suspense fallback
+function LoadingFallback() {
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="animate-pulse">
+        <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
+        <div className="h-4 bg-gray-200 rounded w-1/2 mb-8"></div>
+        <div className="grid gap-6">
+          <div className="h-32 bg-gray-200 rounded"></div>
+          <div className="h-48 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Main component with Suspense boundary
+export default function OrderBuilderPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <OrderBuilderPageContent />
+    </Suspense>
   )
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -184,6 +184,14 @@ function parseMultipleChoiceXML(xmlString: string): MultipleChoiceQuestion {
 }
 
 export default function ChoiceBuilderPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ChoiceBuilder />
+    </Suspense>
+  );
+}
+
+function ChoiceBuilder() {
   const searchParams = useSearchParams();
   const fromXML = searchParams.get("fromXML");
   

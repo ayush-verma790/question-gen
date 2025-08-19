@@ -65,6 +65,17 @@ const ContentBlockEditor = memo(
     const [mediaAlt, setMediaAlt] = useState('');
     const [activeTextareaIndex, setActiveTextareaIndex] = useState<number | null>(null);
     const textareaRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
+    
+    // Image editing state
+    const [showImageEditor, setShowImageEditor] = useState(false);
+    const [selectedImageTag, setSelectedImageTag] = useState('');
+    const [imageEditProps, setImageEditProps] = useState({
+      src: '',
+      alt: '',
+      width: '',
+      height: '',
+      className: 'max-w-full h-auto'
+    });
 
     const updateBlock = (index: number, updatedBlock: ContentBlock) => {
       const newBlocks = [...blocks];
@@ -106,12 +117,69 @@ const ContentBlockEditor = memo(
       setActiveTextareaIndex(index);
       
       if (start !== end) {
-        setSelectedText(textarea.value.substring(start, end));
+        const selectedText = textarea.value.substring(start, end);
+        setSelectedText(selectedText);
         setSelectionRange({ start, end });
+        
+        // Check if selected text is an img tag
+        const imgTagRegex = /<img[^>]*>/i;
+        if (imgTagRegex.test(selectedText)) {
+          handleImageSelection(selectedText, index, start, end);
+        }
       } else {
         setSelectedText('');
         setSelectionRange(null);
       }
+    };
+
+    // Handle image tag selection for editing
+    const handleImageSelection = (imgTag: string, textareaIndex: number, start: number, end: number) => {
+      setSelectedImageTag(imgTag);
+      setActiveTextareaIndex(textareaIndex);
+      setSelectionRange({ start, end });
+      
+      // Parse image attributes
+      const srcMatch = imgTag.match(/src="([^"]*)"/);
+      const altMatch = imgTag.match(/alt="([^"]*)"/);
+      const widthMatch = imgTag.match(/width="([^"]*)"/);
+      const heightMatch = imgTag.match(/height="([^"]*)"/);
+      const classMatch = imgTag.match(/class="([^"]*)"/);
+      
+      setImageEditProps({
+        src: srcMatch ? srcMatch[1] : '',
+        alt: altMatch ? altMatch[1] : '',
+        width: widthMatch ? widthMatch[1] : '',
+        height: heightMatch ? heightMatch[1] : '',
+        className: classMatch ? classMatch[1] : 'max-w-full h-auto'
+      });
+      
+      setShowImageEditor(true);
+    };
+
+    // Handle image property updates
+    const handleUpdateImage = () => {
+      if (activeTextareaIndex === null || !selectionRange) return;
+      
+      const block = blocks[activeTextareaIndex];
+      const { src, alt, width, height, className } = imageEditProps;
+      
+      let newImageTag = `<img src="${src}" alt="${alt}"`;
+      if (className) newImageTag += ` class="${className}"`;
+      if (width) newImageTag += ` width="${width}"`;
+      if (height) newImageTag += ` height="${height}"`;
+      newImageTag += ' />';
+      
+      const before = block.content.substring(0, selectionRange.start);
+      const after = block.content.substring(selectionRange.end);
+      
+      updateBlock(activeTextareaIndex, {
+        ...block,
+        content: before + newImageTag + after
+      });
+      
+      setShowImageEditor(false);
+      setSelectedImageTag('');
+      setSelectionRange(null);
     };
 
     // Simple function to insert tags at cursor or wrap selection
@@ -210,6 +278,13 @@ const ContentBlockEditor = memo(
       if (activeTextareaIndex === null) return;
       
       const block = blocks[activeTextareaIndex];
+      const textarea = textareaRefs.current[activeTextareaIndex];
+      if (!textarea) return;
+
+      const cursorPos = textarea.selectionStart || 0;
+      const before = block.content.substring(0, cursorPos);
+      const after = block.content.substring(cursorPos);
+      
       let mediaTag = '';
       
       switch (mediaType) {
@@ -226,8 +301,15 @@ const ContentBlockEditor = memo(
       
       updateBlock(activeTextareaIndex, {
         ...block,
-        content: block.content + mediaTag
+        content: before + mediaTag + after
       });
+      
+      // Focus back to textarea and position cursor after inserted content
+      setTimeout(() => {
+        textarea.focus();
+        const newCursorPos = before.length + mediaTag.length;
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      }, 50);
       
       setShowMediaModal(false);
       setMediaUrl('');
@@ -522,6 +604,82 @@ const ContentBlockEditor = memo(
                     </div>
                   )}
 
+                  {/* Image Editor Modal */}
+                  {showImageEditor && (
+                    <div className="absolute top-0 left-0 right-0 bg-white border rounded-lg shadow-lg p-4 z-50">
+                      <h3 className="font-medium mb-2">Edit Image Properties</h3>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Image URL</label>
+                          <input
+                            type="text"
+                            value={imageEditProps.src}
+                            onChange={(e) => setImageEditProps(prev => ({ ...prev, src: e.target.value }))}
+                            placeholder="Image URL"
+                            className="w-full p-2 border rounded"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Alt Text</label>
+                          <input
+                            type="text"
+                            value={imageEditProps.alt}
+                            onChange={(e) => setImageEditProps(prev => ({ ...prev, alt: e.target.value }))}
+                            placeholder="Alt text"
+                            className="w-full p-2 border rounded"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Width</label>
+                            <input
+                              type="text"
+                              value={imageEditProps.width}
+                              onChange={(e) => setImageEditProps(prev => ({ ...prev, width: e.target.value }))}
+                              placeholder="e.g., 300px or 50%"
+                              className="w-full p-2 border rounded"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Height</label>
+                            <input
+                              type="text"
+                              value={imageEditProps.height}
+                              onChange={(e) => setImageEditProps(prev => ({ ...prev, height: e.target.value }))}
+                              placeholder="e.g., 200px or auto"
+                              className="w-full p-2 border rounded"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">CSS Classes</label>
+                          <input
+                            type="text"
+                            value={imageEditProps.className}
+                            onChange={(e) => setImageEditProps(prev => ({ ...prev, className: e.target.value }))}
+                            placeholder="CSS classes"
+                            className="w-full p-2 border rounded"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-2 mt-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowImageEditor(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={handleUpdateImage}
+                        >
+                          Update Image
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
 
                   <textarea
                     ref={(el) => {
@@ -552,7 +710,8 @@ const ContentBlockEditor = memo(
                     <strong>💡 Pro Tips:</strong> Use HTML tags like &lt;br&gt;, &lt;strong&gt;, &lt;p&gt;, etc. • 
                     Select text and click formatting buttons to wrap it • 
                     Click buttons without selection to insert empty tags at cursor • 
-                    Use button suggestions above for quick interactive elements
+                    Use button suggestions above for quick interactive elements •
+                    <strong> Select an &lt;img&gt; tag to edit its properties</strong>
                   </div>
                 </div>
               ) : (
@@ -640,13 +799,43 @@ const QuestionPreview = memo(
     promptBlocks,
     textEntryBoxes,
     correctAnswers,
+    correctFeedbackBlocks,
+    incorrectFeedbackBlocks,
     onAnswerChange,
   }: {
     promptBlocks: ContentBlock[];
     textEntryBoxes: TextEntryBox[];
     correctAnswers: string[];
+    correctFeedbackBlocks: ContentBlock[];
+    incorrectFeedbackBlocks: ContentBlock[];
     onAnswerChange: (index: number, value: string) => void;
   }) => {
+    const [userAnswers, setUserAnswers] = useState<string[]>([]);
+    const [showFeedback, setShowFeedback] = useState(false);
+    const [isCorrect, setIsCorrect] = useState(false);
+
+    const handleAnswerChange = (index: number, value: string) => {
+      const newAnswers = [...userAnswers];
+      newAnswers[index] = value;
+      setUserAnswers(newAnswers);
+      onAnswerChange(index, value);
+    };
+
+    const checkAnswers = () => {
+      const allCorrect = textEntryBoxes.every((_, index) => {
+        const userAnswer = userAnswers[index] || '';
+        const correctAnswer = correctAnswers[index] || '';
+        return userAnswer.trim().toLowerCase() === correctAnswer.trim().toLowerCase();
+      });
+      setIsCorrect(allCorrect);
+      setShowFeedback(true);
+    };
+
+    const resetAnswers = () => {
+      setUserAnswers([]);
+      setShowFeedback(false);
+      textEntryBoxes.forEach((_, index) => onAnswerChange(index, ''));
+    };
     const renderedBlocks = useMemo(() => {
       return promptBlocks.map((block) => {
         const style: React.CSSProperties = {
@@ -672,7 +861,7 @@ const QuestionPreview = memo(
             const idx = parseInt(match[1], 10) - 1;
             const box = textEntryBoxes[idx];
             const widthClass = box?.widthClass || "qti-input-width-5";
-            const value = correctAnswers[idx] || "";
+            const value = userAnswers[idx] || '';
 
             const preceding = htmlContent.slice(lastIndex, match.index);
             if (preceding) {
@@ -688,14 +877,15 @@ const QuestionPreview = memo(
               <input
                 key={"input-" + idx}
                 type="text"
-                className={`${widthClass} border-b-2 border-red-500 bg-white px-1 mx-1`}
+                className={`${widthClass} border-b-2 border-gray-400 bg-white px-1 mx-1 focus:border-blue-500 outline-none`}
                 style={{
                   display: "inline-block",
                   height: 24,
                   verticalAlign: "middle",
                 }}
                 value={value}
-                onChange={(e) => onAnswerChange(idx, e.target.value)}
+                onChange={(e) => handleAnswerChange(idx, e.target.value)}
+                placeholder={`Answer ${idx + 1}`}
               />
             );
             lastIndex = match.index + match[0].length;
@@ -762,39 +952,82 @@ const QuestionPreview = memo(
         }
         return null;
       });
-    }, [promptBlocks, textEntryBoxes, correctAnswers, onAnswerChange]);
+    }, [promptBlocks, textEntryBoxes, userAnswers, handleAnswerChange]);
 
     return (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Eye className="w-5 h-5" />
-            Preview
+            Interactive Preview
           </CardTitle>
         </CardHeader>
         <CardContent>
           {promptBlocks.length > 0 ? (
             <div className="space-y-4">
               {renderedBlocks}
+              
+              {/* Interactive Controls */}
               {textEntryBoxes.length > 0 && (
-                <div className="mt-4 p-4 bg-gray-50 rounded">
-                  <h3 className="font-medium mb-2">Configuration Summary:</h3>
-                  <ul className="space-y-2">
+                <div className="flex gap-2 mt-6 pt-4 border-t">
+                  <Button onClick={checkAnswers} className="bg-blue-600 hover:bg-blue-700">
+                    Check Answers
+                  </Button>
+                  <Button variant="outline" onClick={resetAnswers}>
+                    Reset
+                  </Button>
+                </div>
+              )}
+
+              {/* Feedback Display */}
+              {showFeedback && (
+                <div className={`mt-4 p-4 rounded-lg border ${
+                  isCorrect 
+                    ? 'bg-green-50 border-green-200 text-green-800' 
+                    : 'bg-red-50 border-red-200 text-red-800'
+                }`}>
+                  <h3 className="font-medium mb-2">
+                    {isCorrect ? '✅ Correct!' : '❌ Incorrect'}
+                  </h3>
+                  <div>
+                    {isCorrect 
+                      ? correctFeedbackBlocks.map((block) => (
+                          <div key={block.id} dangerouslySetInnerHTML={{ 
+                            __html: block.content.replace(/<br\s*\/?>/gi, '<br/>') 
+                          }} />
+                        ))
+                      : incorrectFeedbackBlocks.map((block) => (
+                          <div key={block.id} dangerouslySetInnerHTML={{ 
+                            __html: block.content.replace(/<br\s*\/?>/gi, '<br/>') 
+                          }} />
+                        ))
+                    }
+                  </div>
+                </div>
+              )}
+
+              {/* Configuration Summary */}
+              {textEntryBoxes.length > 0 && (
+                <div className="mt-6 p-4 bg-gray-50 rounded">
+                  <h3 className="font-medium mb-3">📋 Configuration Summary:</h3>
+                  <div className="grid gap-3">
                     {textEntryBoxes.map((box, index) => (
-                      <li key={box.id} className="text-sm">
-                        <div className="font-medium">Box {index + 1}:</div>
-                        <div>Length: {box.expectedLength || "Not set"}</div>
-                        <div>Pattern: {box.patternMask || "None"}</div>
-                        <div>Width: {box.widthClass || "Default"}</div>
-                        <div>
-                          Answer:{" "}
-                          <span className="font-mono bg-gray-100 px-1 rounded">
-                            {correctAnswers[index] || "[not set]"}
-                          </span>
+                      <div key={box.id} className="text-sm bg-white p-3 rounded border">
+                        <div className="font-medium text-blue-700">Text Box {index + 1}:</div>
+                        <div className="grid grid-cols-2 gap-2 mt-1 text-gray-600">
+                          <div>Length: {box.expectedLength || "Not set"}</div>
+                          <div>Pattern: {box.patternMask || "None"}</div>
+                          <div>Width: {box.widthClass || "Default"}</div>
+                          <div className="col-span-2">
+                            Correct Answer: 
+                            <span className="font-mono bg-gray-100 px-2 py-1 rounded ml-2 text-green-700">
+                              {correctAnswers[index] || "[not set]"}
+                            </span>
+                          </div>
                         </div>
-                      </li>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
             </div>
@@ -1607,13 +1840,15 @@ export default function TextEntryBuilderPage() {
                 promptBlocks={question.promptBlocks}
                 textEntryBoxes={question.textEntryBoxes}
                 correctAnswers={question.correctAnswers}
+                correctFeedbackBlocks={question.correctFeedbackBlocks}
+                incorrectFeedbackBlocks={question.incorrectFeedbackBlocks}
                 onAnswerChange={updateAnswer}
               />
             </div>
           )}
           {activeTab === 'feedbacks' && (
             <div className="space-y-6">
-              {/* <ContentBlockEditor
+              <ContentBlockEditor
                 blocks={question.correctFeedbackBlocks}
                 onChange={(blocks) =>
                   setQuestion((prev) => ({
@@ -1622,16 +1857,16 @@ export default function TextEntryBuilderPage() {
                   }))
                 }
                 title="Correct Feedback"
-              /> */}
+              />
               {/* Preview for Correct Feedback */}
-              {/* <Card>
+              <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-green-700">
                     <Eye className="w-4 h-4" /> Correct Feedback Preview
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {question.correctFeedbackBlocks.length > 0 ? (
+                  {question.correctFeedbackBlocks.length > 0 && question.correctFeedbackBlocks[0].content ? (
                     question.correctFeedbackBlocks.map((block) => (
                       <div key={block.id} className="mb-2 p-2 bg-green-50 rounded border border-green-100">
                         <span dangerouslySetInnerHTML={{ __html: block.content.replace(/<br\s*\/?>/gi, '<br/>') }} />
@@ -1641,7 +1876,7 @@ export default function TextEntryBuilderPage() {
                     <span className="text-gray-400">No correct feedback content.</span>
                   )}
                 </CardContent>
-              </Card> */}
+              </Card>
               <ContentBlockEditor
                 blocks={question.incorrectFeedbackBlocks}
                 onChange={(blocks) =>
@@ -1660,7 +1895,7 @@ export default function TextEntryBuilderPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {question.incorrectFeedbackBlocks.length > 0 ? (
+                  {question.incorrectFeedbackBlocks.length > 0 && question.incorrectFeedbackBlocks[0].content ? (
                     question.incorrectFeedbackBlocks.map((block) => (
                       <div key={block.id} className="mb-2 p-2 bg-red-50 rounded border border-red-100">
                         <span dangerouslySetInnerHTML={{ __html: block.content.replace(/<br\s*\/?>/gi, '<br/>') }} />
@@ -1690,8 +1925,76 @@ export default function TextEntryBuilderPage() {
                 promptBlocks={question.promptBlocks}
                 textEntryBoxes={question.textEntryBoxes}
                 correctAnswers={question.correctAnswers}
+                correctFeedbackBlocks={question.correctFeedbackBlocks}
+                incorrectFeedbackBlocks={question.incorrectFeedbackBlocks}
                 onAnswerChange={updateAnswer}
               />
+              
+              {/* Feedback Previews */}
+              <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+                {/* Correct Feedback Preview */}
+                {/* <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-green-700">
+                      <Eye className="w-4 h-4" /> 
+                      Correct Feedback Preview
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {question.correctFeedbackBlocks.length > 0 && question.correctFeedbackBlocks[0].content ? (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        {question.correctFeedbackBlocks.map((block) => (
+                          <div 
+                            key={block.id} 
+                            className="text-green-800"
+                            dangerouslySetInnerHTML={{ 
+                              __html: block.content.replace(/<br\s*\/?>/gi, '<br/>') 
+                            }} 
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-gray-400 text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
+                        <div className="text-lg mb-2">📝</div>
+                        <p>No correct feedback content added yet.</p>
+                        <p className="text-sm mt-1">Add content in the Feedbacks tab to see preview here.</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card> */}
+
+                {/* Incorrect Feedback Preview */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-red-700">
+                      <Eye className="w-4 h-4" /> 
+                      Incorrect Feedback Preview
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {question.incorrectFeedbackBlocks.length > 0 && question.incorrectFeedbackBlocks[0].content ? (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                        {question.incorrectFeedbackBlocks.map((block) => (
+                          <div 
+                            key={block.id} 
+                            className="text-red-800"
+                            dangerouslySetInnerHTML={{ 
+                              __html: block.content.replace(/<br\s*\/?>/gi, '<br/>') 
+                            }} 
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-gray-400 text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
+                        <div className="text-lg mb-2">📝</div>
+                        <p>No incorrect feedback content added yet.</p>
+                        <p className="text-sm mt-1">Add content in the Feedbacks tab to see preview here.</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
               {generatedXML && (
                 <Card>
                   <CardHeader>

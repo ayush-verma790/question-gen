@@ -627,7 +627,7 @@ ${hottextElements}
               </Card> */}
 
               {/* Main Question Image */}
-              <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-md rounded-2xl overflow-hidden mt-8">
+              {/* <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-md rounded-2xl overflow-hidden mt-8">
                 <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-100/50 pb-4">
                   <CardTitle className="text-xl font-bold text-green-900 flex items-center gap-3">
                     <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
@@ -703,7 +703,7 @@ ${hottextElements}
                     </div>
                   )}
                 </CardContent>
-              </Card>
+              </Card> */}
             </div>
           </TabsContent>
 

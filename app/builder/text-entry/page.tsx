@@ -76,14 +76,12 @@ const ContentBlockEditor = memo(
     title,
     allowTextBox,
     onInsertTextBox,
-    onCursorPositionChange,
   }: {
     blocks: ContentBlock[];
     onChange: (blocks: ContentBlock[]) => void;
     title: string;
     allowTextBox?: boolean;
     onInsertTextBox?: (blockId: string) => void;
-    onCursorPositionChange?: (position: number) => void;
   }) => {
     // State for each component instance
     const [selectedText, setSelectedText] = useState("");
@@ -199,24 +197,23 @@ const ContentBlockEditor = memo(
 
     // Handle image property updates
     const handleUpdateImage = () => {
-      if (activeTextareaIndex === null || !selectedImageTag) return;
+      if (activeTextareaIndex === null || !selectionRange) return;
 
       const block = blocks[activeTextareaIndex];
       const { src, alt, width, height, className } = imageEditProps;
 
-      // Create the updated image tag
       let newImageTag = `<img src="${src}" alt="${alt}"`;
       if (className) newImageTag += ` class="${className}"`;
       if (width) newImageTag += ` width="${width}"`;
       if (height) newImageTag += ` height="${height}"`;
       newImageTag += " />";
 
-      // Replace the selected image tag with the updated one
-      const updatedContent = block.content.replace(selectedImageTag, newImageTag);
+      const before = block.content.substring(0, selectionRange.start);
+      const after = block.content.substring(selectionRange.end);
 
       updateBlock(activeTextareaIndex, {
         ...block,
-        content: updatedContent,
+        content: before + newImageTag + after,
       });
 
       setShowImageEditor(false);
@@ -224,117 +221,77 @@ const ContentBlockEditor = memo(
       setSelectionRange(null);
     };
 
-    // Improved HTML tag insertion function
+    // Simple function to insert tags at cursor or wrap selection
     const insertHtmlTag = (
       tag: string,
       extraAttrs = "",
       isSelfClosing = false
     ) => {
-      if (activeTextareaIndex === null) {
+      // Find which textarea to use
+      let textareaIndex = activeTextareaIndex;
+
+      // If no active textarea, try to find the last clicked one
+      if (textareaIndex === null) {
+        // Use the first textarea as fallback
+        textareaIndex = 0;
+      }
+
+      if (textareaIndex === null || !textareaRefs.current[textareaIndex]) {
         alert("Please click in a text area first");
         return;
       }
 
-      const textarea = textareaRefs.current[activeTextareaIndex];
-      const block = blocks[activeTextareaIndex];
-      
-      if (!textarea || !block) return;
+      const textarea = textareaRefs.current[textareaIndex];
+      const block = blocks[textareaIndex];
 
-      // Get current selection
+      // Get current cursor position and selection
       const start = textarea.selectionStart || 0;
       const end = textarea.selectionEnd || 0;
       const hasSelection = start !== end;
-      
-      // Get the current content (convert <br/> to \n for working with textarea)
-      const textareaContent = textarea.value;
-      const selectedText = hasSelection ? textareaContent.substring(start, end) : "";
 
+      // Get text parts
+      const beforeCursor = block.content.substring(0, start);
+      const selectedOrEmpty = hasSelection
+        ? block.content.substring(start, end)
+        : "";
+      const afterCursor = block.content.substring(end);
+
+      // Create the HTML tag to insert
       let htmlToInsert = "";
       let newCursorPosition = start;
 
-      // Self-closing tags (br, img, hr, etc.)
-      if (isSelfClosing || ['br', 'hr', 'img', 'input', 'area', 'base', 'col', 'embed', 'meta', 'param', 'source', 'track', 'wbr'].includes(tag.toLowerCase())) {
+      if (isSelfClosing) {
+        // For self-closing tags like <br />, <hr />
         htmlToInsert = extraAttrs ? `<${tag} ${extraAttrs} />` : `<${tag} />`;
         newCursorPosition = start + htmlToInsert.length;
-      }
-      // No selection - insert empty tag pair
-      else if (!hasSelection) {
-        const openTag = extraAttrs ? `<${tag} ${extraAttrs}>` : `<${tag}>`;
-        const closeTag = `</${tag}>`;
-        htmlToInsert = openTag + closeTag;
-        newCursorPosition = start + openTag.length; // Position cursor between tags
-      }
-      // Has selection - wrap only plain text, not HTML
-      else {
-        // Check if selection contains HTML tags
-        const containsHTML = selectedText.includes('<') && selectedText.includes('>');
-        
-        if (containsHTML) {
-          // Don't wrap HTML - insert at end of selection instead
-          const openTag = extraAttrs ? `<${tag} ${extraAttrs}>` : `<${tag}>`;
-          const closeTag = `</${tag}>`;
-          htmlToInsert = openTag + closeTag;
-          newCursorPosition = end + htmlToInsert.length; // Insert after the HTML selection
-          
-          // Update textarea content - insert after the selection
-          const beforeSelection = textareaContent.substring(0, end);
-          const afterSelection = textareaContent.substring(end);
-          const newTextareaContent = beforeSelection + htmlToInsert + afterSelection;
-          
-          // Convert back to HTML format for storage
-          const newBlockContent = newTextareaContent.replace(/\n/g, "<br/>");
-
-          // Update the block
-          updateBlock(activeTextareaIndex, {
-            ...block,
-            content: newBlockContent,
-          });
-        } else {
-          // Wrap plain text
-          const openTag = extraAttrs ? `<${tag} ${extraAttrs}>` : `<${tag}>`;
-          const closeTag = `</${tag}>`;
-          htmlToInsert = openTag + selectedText + closeTag;
-          newCursorPosition = start + htmlToInsert.length;
-          
-          // Update textarea content
-          const beforeSelection = textareaContent.substring(0, start);
-          const afterSelection = textareaContent.substring(end);
-          const newTextareaContent = beforeSelection + htmlToInsert + afterSelection;
-          
-          // Convert back to HTML format for storage
-          const newBlockContent = newTextareaContent.replace(/\n/g, "<br/>");
-
-          // Update the block
-          updateBlock(activeTextareaIndex, {
-            ...block,
-            content: newBlockContent,
-          });
-        }
-        
-        // Set focus and cursor position
-        setTimeout(() => {
-          textarea.focus();
-          textarea.setSelectionRange(newCursorPosition, newCursorPosition);
-        }, 50);
-        
-        return; // Exit early since we've handled the update
+      } else if (hasSelection) {
+        // If text is selected, wrap it
+        htmlToInsert = extraAttrs
+          ? `<${tag} ${extraAttrs}>${selectedOrEmpty}</${tag}>`
+          : `<${tag}>${selectedOrEmpty}</${tag}>`;
+        newCursorPosition = start + htmlToInsert.length;
+      } else {
+        // If no selection, insert opening and closing tags
+        htmlToInsert = extraAttrs
+          ? `<${tag} ${extraAttrs}></${tag}>`
+          : `<${tag}></${tag}>`;
+        // Place cursor between the tags
+        const openingTagLength = extraAttrs
+          ? `<${tag} ${extraAttrs}>`.length
+          : `<${tag}>`.length;
+        newCursorPosition = start + openingTagLength;
       }
 
-      // For self-closing tags and no selection cases
-      const beforeSelection = textareaContent.substring(0, start);
-      const afterSelection = textareaContent.substring(start);
-      const newTextareaContent = beforeSelection + htmlToInsert + afterSelection;
-      
-      // Convert back to HTML format for storage
-      const newBlockContent = newTextareaContent.replace(/\n/g, "<br/>");
+      // Create new content
+      const newContent = beforeCursor + htmlToInsert + afterCursor;
 
       // Update the block
-      updateBlock(activeTextareaIndex, {
+      updateBlock(textareaIndex, {
         ...block,
-        content: newBlockContent,
+        content: newContent,
       });
 
-      // Set focus and cursor position
+      // Focus and position cursor
       setTimeout(() => {
         textarea.focus();
         textarea.setSelectionRange(newCursorPosition, newCursorPosition);
@@ -361,20 +318,20 @@ const ContentBlockEditor = memo(
       });
     };
 
-    // Improved media insertion function
+    // Handle media insertion
     const handleInsertMedia = () => {
       if (activeTextareaIndex === null) return;
 
-      const textarea = textareaRefs.current[activeTextareaIndex];
       const block = blocks[activeTextareaIndex];
-      
-      if (!textarea || !block) return;
+      const textarea = textareaRefs.current[activeTextareaIndex];
+      if (!textarea) return;
 
-      // Get current cursor position
       const cursorPos = textarea.selectionStart || 0;
-      
-      // Generate media tag based on type
+      const before = block.content.substring(0, cursorPos);
+      const after = block.content.substring(cursorPos);
+
       let mediaTag = "";
+
       switch (mediaType) {
         case "image":
           mediaTag = `<img src="${mediaUrl}" alt="${mediaAlt}" class="max-w-full h-auto" />`;
@@ -387,38 +344,21 @@ const ContentBlockEditor = memo(
           break;
       }
 
-      // Insert at cursor position in textarea content
-      const textareaContent = textarea.value;
-      const before = textareaContent.substring(0, cursorPos);
-      const after = textareaContent.substring(cursorPos);
-      
-      // Add space after media tag if the next character isn't whitespace or empty
-      const mediaWithSpace = after.length > 0 && !after.startsWith(' ') && !after.startsWith('\n') 
-        ? mediaTag + ' ' 
-        : mediaTag;
-      
-      const newTextareaContent = before + mediaWithSpace + after;
-      
-      // Convert to block content format
-      const newBlockContent = newTextareaContent.replace(/\n/g, "<br/>");
-
-      // Update the block
       updateBlock(activeTextareaIndex, {
         ...block,
-        content: newBlockContent,
+        content: before + mediaTag + after,
       });
 
-      // Close modal and reset form
+      // Focus back to textarea and position cursor after inserted content
+      setTimeout(() => {
+        textarea.focus();
+        const newCursorPos = before.length + mediaTag.length;
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      }, 50);
+
       setShowMediaModal(false);
       setMediaUrl("");
       setMediaAlt("");
-
-      // Focus and position cursor after inserted content (including space if added)
-      setTimeout(() => {
-        textarea.focus();
-        const newCursorPos = before.length + mediaWithSpace.length;
-        textarea.setSelectionRange(newCursorPos, newCursorPos);
-      }, 100);
     };
 
     // Handle button suggestion insertion
@@ -429,10 +369,7 @@ const ContentBlockEditor = memo(
       const textarea = textareaRefs.current[activeTextareaIndex];
       if (!textarea) return;
 
-      // Get cursor position and clear any selection
       const cursorPos = textarea.selectionStart || 0;
-      textarea.setSelectionRange(cursorPos, cursorPos);
-      
       const before = block.content.substring(0, cursorPos);
       const after = block.content.substring(cursorPos);
 
@@ -823,70 +760,23 @@ const ContentBlockEditor = memo(
                     </div>
                   )}
 
-                  {/* Enhanced Text Editor */}
-                  <div className="space-y-2">
-                    <textarea
-                      ref={(el) => {
-                        textareaRefs.current[index] = el;
-                      }}
-                      value={block.content.replace(/<br\s*\/?>/gi, "\n")}
-                      placeholder="Enter text content here - Type HTML directly or use formatting buttons"
-                      onChange={(e) => {
-                        const newContent = e.target.value.replace(/\n/g, "<br/>");
-                        updateBlock(index, {
-                          ...block,
-                          content: newContent,
-                        });
-                      }}
-                      onSelect={() => {
-                        handleTextSelection(index);
-                        // Update cursor position for textbox insertion
-                        const textarea = textareaRefs.current[index];
-                        if (textarea && onCursorPositionChange) {
-                          onCursorPositionChange(textarea.selectionStart);
-                        }
-                      }}
-                      onFocus={() => {
-                        setActiveTextareaIndex(index);
-                        // Update cursor position for textbox insertion
-                        const textarea = textareaRefs.current[index];
-                        if (textarea && onCursorPositionChange) {
-                          onCursorPositionChange(textarea.selectionStart);
-                        }
-                      }}
-                      onClick={() => {
-                        setActiveTextareaIndex(index);
-                        // Update cursor position for textbox insertion
-                        const textarea = textareaRefs.current[index];
-                        if (textarea && onCursorPositionChange) {
-                          onCursorPositionChange(textarea.selectionStart);
-                        }
-                      }}
-                      onKeyUp={() => {
-                        // Update cursor position when user moves cursor with keyboard
-                        const textarea = textareaRefs.current[index];
-                        if (textarea && onCursorPositionChange) {
-                          onCursorPositionChange(textarea.selectionStart);
-                        }
-                      }}
-                      className="w-full min-h-[120px] border p-3 rounded-lg bg-white font-mono text-sm leading-relaxed resize-vertical"
-                      style={{ 
-                        lineHeight: "1.6",
-                        tabSize: "2"
-                      }}
-                    />
-                    
-                    {/* Live Preview */}
-                    <div className="border rounded-lg p-3 bg-gray-50">
-                      <div className="text-xs text-gray-600 mb-2 font-medium">Live Preview:</div>
-                      <div 
-                        className="prose prose-sm max-w-none"
-                        dangerouslySetInnerHTML={{ 
-                          __html: block.content || '<span class="text-gray-400">Start typing to see preview...</span>' 
-                        }} 
-                      />
-                    </div>
-                  </div>
+                  <textarea
+                    ref={(el) => {
+                      textareaRefs.current[index] = el;
+                    }}
+                    value={block.content.replace(/<br\s*\/?>/gi, "\n")}
+                    placeholder="Enter text content here [1]"
+                    onChange={(e) =>
+                      updateBlock(index, {
+                        ...block,
+                        content: e.target.value.replace(/\n/g, "<br/>"),
+                      })
+                    }
+                    onSelect={() => handleTextSelection(index)}
+                    onFocus={() => setActiveTextareaIndex(index)}
+                    onClick={() => setActiveTextareaIndex(index)}
+                    className="w-full min-h-[100px] border p-2 rounded bg-white"
+                  />
 
                   {/* Button Suggestions Section */}
                   <div className="mt-4">
@@ -2209,7 +2099,6 @@ export default function TextEntryBuilderPage() {
                 title="Question Prompt"
                 allowTextBox={true}
                 onInsertTextBox={insertTextEntryBox}
-                onCursorPositionChange={setCursorPosition}
               />
               <QuestionPreview
                 promptBlocks={question.promptBlocks}
@@ -2232,7 +2121,6 @@ export default function TextEntryBuilderPage() {
                   }))
                 }
                 title="Correct Feedback"
-                onCursorPositionChange={setCursorPosition}
               />
               {/* Preview for Correct Feedback */}
               <Card>
@@ -2275,7 +2163,6 @@ export default function TextEntryBuilderPage() {
                   }))
                 }
                 title="Incorrect Feedback"
-                onCursorPositionChange={setCursorPosition}
               />
               {/* Preview for Incorrect Feedback */}
               <Card>

@@ -6,13 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Eye, Copy, Upload, Code, Image as ImageIcon, ChevronDown, ChevronUp, Bold, Italic, Underline } from "lucide-react";
+import { Trash2, Plus, Eye, Copy, Upload, Code, Image as ImageIcon, ChevronDown, ChevronUp, Bold, Italic, Underline, Palette, Type } from "lucide-react";
 import { XMLViewer } from "@/components/xml-viewer";
 import { Toggle } from "@/components/ui/toggle";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+import { RichTextEditor } from "@/components/rich-text-editor";
+import { ButtonSuggestions } from "@/components/button-suggestions";
 
 interface ContentBlock {
   id: string;
@@ -24,7 +26,14 @@ interface ContentBlock {
 interface Gap {
   id: string;
   position: number;
-  isCorrect: boolean;
+  correctGapTextId?: string; // Which gap text should go in this gap
+}
+
+interface GapText {
+  id: string;
+  content: string;
+  matchMax: number; // How many times this can be used
+  styles?: Record<string, string>;
 }
 
 interface GapMatchQuestion {
@@ -33,7 +42,7 @@ interface GapMatchQuestion {
   instructions: ContentBlock[];
   baseContent: ContentBlock[];
   gaps: Gap[];
-  gapTexts: ContentBlock[];
+  gapTexts: GapText[];
   shuffle: boolean;
   maxAssociations: number;
   correctFeedback: ContentBlock[];
@@ -43,47 +52,42 @@ interface GapMatchQuestion {
 
 const initialQuestionState: GapMatchQuestion = {
   identifier: `gap-match-${Date.now()}`,
-  title: "Comma Placement Exercise",
+  title: "Gap Match Exercise",
   instructions: [{
     id: "instr-1",
     type: "text",
-    content: "Add commas to correct the sentence. The sentence should have <b>three</b> commas.",
+    content: "Complete the following sentences using the words or phrases provided.",
     styles: { fontSize: "16px", color: "#333" }
   }],
   baseContent: [{
     id: "content-1",
     type: "text",
-    content: "My sports bag holds a jersey shorts socks and cleats for practice."
+    content: "One full revolution of [GAP1] around [GAP2] takes 365 days. Because [GAP3] is farther out from the center of the solar system, the planet takes almost 687 days to complete its orbit, far longer than the orbit of [GAP4], which is 88 days."
   }],
   gaps: [
-    { id: "pos6", position: 6, isCorrect: true },
-    { id: "pos7", position: 7, isCorrect: true },
-    { id: "pos8", position: 8, isCorrect: true }
+    { id: "t1", position: 1, correctGapTextId: "s1" },
+    { id: "t2", position: 2, correctGapTextId: "s5" },
+    { id: "t3", position: 3, correctGapTextId: "s2" },
+    { id: "t4", position: 4, correctGapTextId: "s3" }
   ],
-  gapTexts: [{
-    id: "comma",
-    type: "button",
-    content: ",",
-    styles: { 
-      fontSize: "18px", 
-      fontWeight: "bold",
-      padding: "8px 16px",
-      borderRadius: "4px",
-      backgroundColor: "#e2e8f0",
-      border: "1px solid #cbd5e1"
-    }
-  }],
+  gapTexts: [
+    { id: "s1", content: "Earth", matchMax: 1 },
+    { id: "s2", content: "Mars", matchMax: 1 },
+    { id: "s3", content: "Mercury", matchMax: 1 },
+    { id: "s4", content: "the Moon", matchMax: 1 },
+    { id: "s5", content: "the Sun", matchMax: 1 }
+  ],
   shuffle: false,
-  maxAssociations: 0,
+  maxAssociations: 4,
   correctFeedback: [{
     id: "correct-1",
     type: "text",
-    content: "<strong>Great job!</strong> You placed all commas correctly."
+    content: "<strong>Excellent!</strong> You've correctly placed all the items."
   }],
   incorrectFeedback: [{
     id: "incorrect-1",
     type: "text",
-    content: "<strong>Try again!</strong> Remember to place commas between list items."
+    content: "<strong>Try again!</strong> Some items are not in the correct positions."
   }],
   globalStyles: {
     fontFamily: "Arial, sans-serif",
@@ -94,23 +98,28 @@ const initialQuestionState: GapMatchQuestion = {
   }
 };
 
-const predefinedButtons = [
+const predefinedGapTexts = [
+  { content: "Earth", label: "Earth" },
+  { content: "Mars", label: "Mars" },
+  { content: "Mercury", label: "Mercury" },
+  { content: "the Moon", label: "The Moon" },
+  { content: "the Sun", label: "The Sun" },
   { content: ",", label: "Comma" },
   { content: ".", label: "Period" },
   { content: ";", label: "Semicolon" },
   { content: ":", label: "Colon" },
-  { content: "(", label: "Open Parenthesis" },
-  { content: ")", label: "Close Parenthesis" },
-  { content: "[", label: "Open Bracket" },
-  { content: "]", label: "Close Bracket" }
+  { content: "and", label: "And" },
+  { content: "or", label: "Or" },
+  { content: "but", label: "But" }
 ];
 
 export default function GapMatchBuilder() {
   const [question, setQuestion] = useState<GapMatchQuestion>(initialQuestionState);
   const [generatedXML, setGeneratedXML] = useState("");
-  const [activeTab, setActiveTab] = useState<"content" | "gaps" | "feedback" | "styles">("content");
+  const [activeTab, setActiveTab] = useState<"content" | "gaps" | "feedback" | "styles" | "preview">("content");
   const [importXML, setImportXML] = useState("");
   const [isImporting, setIsImporting] = useState(false);
+  
   const [expandedPanels, setExpandedPanels] = useState({
     instructions: true,
     content: true,
@@ -171,8 +180,8 @@ export default function GapMatchBuilder() {
   const addGap = () => {
     const newGap = {
       id: generateId("gap"),
-      position: 0,
-      isCorrect: true
+      position: question.gaps.length + 1,
+      correctGapTextId: ""
     };
     
     setQuestion(prev => ({
@@ -190,6 +199,38 @@ export default function GapMatchBuilder() {
     }));
   };
 
+  const addGapText = (content: string = "New item") => {
+    const newGapText: GapText = {
+      id: generateId("gaptext"),
+      content,
+      matchMax: 1
+    };
+    
+    setQuestion(prev => ({
+      ...prev,
+      gapTexts: [...prev.gapTexts, newGapText]
+    }));
+  };
+
+  const updateGapText = (id: string, updates: Partial<GapText>) => {
+    setQuestion(prev => ({
+      ...prev,
+      gapTexts: prev.gapTexts.map(gt => 
+        gt.id === id ? { ...gt, ...updates } : gt
+      )
+    }));
+  };
+
+  const removeGapText = (id: string) => {
+    setQuestion(prev => ({
+      ...prev,
+      gapTexts: prev.gapTexts.filter(gt => gt.id !== id),
+      gaps: prev.gaps.map(gap => 
+        gap.correctGapTextId === id ? { ...gap, correctGapTextId: "" } : gap
+      )
+    }));
+  };
+
   const removeGap = (id: string) => {
     setQuestion(prev => ({
       ...prev,
@@ -198,67 +239,69 @@ export default function GapMatchBuilder() {
   };
 
   const generateXML = () => {
+    // Convert content blocks to instructions HTML
     const instructionsHTML = question.instructions
-      .map(i => {
-        if (i.type === "image") return `<img src="${i.content}" style="${styleToString(i.styles)}" />`;
-        if (i.type === "html") return i.content;
-        return `<span style="${styleToString(i.styles)}">${i.content}</span>`;
+      .map(block => {
+        if (block.type === "image") return `<img src="${block.content}" style="${styleToString(block.styles)}" />`;
+        if (block.type === "html") return block.content;
+        return `<span style="${styleToString(block.styles)}">${block.content}</span>`;
       })
       .join("");
     
-    let contentWithGaps = "";
-    if (question.baseContent.length > 0) {
-      if (question.baseContent[0].type === "text") {
-        const words = question.baseContent[0].content.split(" ");
-        contentWithGaps = words.map((word, index) => {
-          const gap = question.gaps.find(g => g.position === index);
-          return gap ? `${word}<qti-gap identifier="${gap.id}" />` : `${word} `;
-        }).join("");
-      } else {
-        contentWithGaps = question.baseContent[0].content;
-      }
-    }
+    // Convert base content blocks to main content HTML
+    const baseContentHTML = question.baseContent
+      .map(block => {
+        if (block.type === "image") return `<img src="${block.content}" style="${styleToString(block.styles)}" />`;
+        if (block.type === "html") return block.content;
+        return `<span style="${styleToString(block.styles)}">${block.content}</span>`;
+      })
+      .join("");
+    
+    let contentWithGaps = baseContentHTML;
+    // Replace [GAP1], [GAP2], etc. with qti-gap elements
+    question.gaps.forEach((gap) => {
+      const gapPattern = new RegExp(`\\[GAP${gap.position}\\]`, 'g');
+      contentWithGaps = contentWithGaps.replace(gapPattern, `<qti-gap identifier="${gap.id}" />`);
+    });
     
     const correctResponses = question.gaps
-      .filter(g => g.isCorrect)
-      .map(g => `<qti-value>${question.gapTexts[0]?.id || "comma"} ${g.id}</qti-value>`)
+      .filter(g => g.correctGapTextId)
+      .map(g => `<qti-value>${g.correctGapTextId} ${g.id}</qti-value>`)
+      .join("\n      ");
+    
+    const mapEntries = question.gaps
+      .filter(g => g.correctGapTextId)
+      .map(g => `<qti-map-entry map-key="${g.correctGapTextId} ${g.id}" mapped-value="1"/>`)
       .join("\n      ");
     
     const gapTextsXML = question.gapTexts
-      .map(gt => `<qti-gap-text identifier="${gt.id}" match-max="${question.gaps.filter(g => g.isCorrect).length}">${gt.content}</qti-gap-text>`)
+      .map(gt => `<qti-gap-text identifier="${gt.id}" match-max="${gt.matchMax}">${gt.content}</qti-gap-text>`)
       .join("\n      ");
     
-    const correctFeedback = question.correctFeedback
-      .map(f => {
-        if (f.type === "image") return `<img src="${f.content}" style="${styleToString(f.styles)}" />`;
-        if (f.type === "html") return f.content;
-        return `<span style="${styleToString(f.styles)}">${f.content}</span>`;
-      })
-      .join("");
-    
-    const incorrectFeedback = question.incorrectFeedback
-      .map(f => {
-        if (f.type === "image") return `<img src="${f.content}" style="${styleToString(f.styles)}" />`;
-        if (f.type === "html") return f.content;
-        return `<span style="${styleToString(f.styles)}">${f.content}</span>`;
-      })
-      .join("");
-    
-    const xml = `<?xml version="1.0"?>
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <qti-assessment-item 
   xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0" 
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+  xsi:schemaLocation="http://www.imsglobal.org/xsd/imsqtiasi_v3p0 https://purl.imsglobal.org/spec/qti/v3p0/schema/xsd/imsqti_asiv3p0_v1p0.xsd" 
   identifier="${question.identifier}" 
   title="${question.title}" 
-  time-dependent="false" 
-  xml:lang="en-US">
+  adaptive="false" 
+  time-dependent="false">
   
   <qti-response-declaration identifier="RESPONSE" cardinality="multiple" base-type="directedPair">
     <qti-correct-response>
       ${correctResponses}
     </qti-correct-response>
+    <qti-mapping default-value="0" lower-bound="0.00" upper-bound="${question.gaps.length}">
+      ${mapEntries}
+    </qti-mapping>
   </qti-response-declaration>
   
-  <qti-outcome-declaration identifier="FEEDBACK" cardinality="single" base-type="identifier"/>
+  <qti-outcome-declaration identifier="SCORE" cardinality="single" base-type="float">
+    <qti-default-value>
+      <qti-value>0</qti-value>
+    </qti-default-value>
+  </qti-outcome-declaration>
   
   <qti-item-body>
     <div>
@@ -267,30 +310,41 @@ export default function GapMatchBuilder() {
     
     <qti-gap-match-interaction 
       response-identifier="RESPONSE" 
-      shuffle="${question.shuffle}" 
-      max-associations="${question.maxAssociations}">
+      shuffle="true" 
+      max-associations="${question.gaps.length}">
       
       ${gapTextsXML}
       
-      <p>
-        ${contentWithGaps}
-      </p>
+      <div>
+        <p>${contentWithGaps}</p>
+      </div>
     </qti-gap-match-interaction>
-    
-    <qti-feedback-block outcome-identifier="FEEDBACK" identifier="CORRECT" show-hide="show">
-      <qti-content-body>
-        ${correctFeedback}
-      </qti-content-body>
-    </qti-feedback-block>
-    
-    <qti-feedback-block outcome-identifier="FEEDBACK" identifier="INCORRECT" show-hide="show">
-      <qti-content-body>
-        ${incorrectFeedback}
-      </qti-content-body>
-    </qti-feedback-block>
   </qti-item-body>
   
-  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/match_correct.xml"/>
+  <qti-response-processing>
+    <qti-response-condition>
+      <qti-response-if>
+        <qti-is-null><qti-variable identifier="RESPONSE"/></qti-is-null>
+        <qti-set-outcome-value identifier="SCORE">
+          <qti-base-value base-type="float">0.00</qti-base-value>
+        </qti-set-outcome-value>
+      </qti-response-if>
+      <qti-response-else-if>
+        <qti-gte>
+          <qti-map-response identifier="RESPONSE"/>
+          <qti-base-value base-type="float">${question.gaps.length}</qti-base-value>
+        </qti-gte>
+        <qti-set-outcome-value identifier="SCORE">
+          <qti-map-response identifier="RESPONSE"/>
+        </qti-set-outcome-value>
+      </qti-response-else-if>
+      <qti-response-else>
+        <qti-set-outcome-value identifier="SCORE">
+          <qti-base-value base-type="float">0.00</qti-base-value>
+        </qti-set-outcome-value>
+      </qti-response-else>
+    </qti-response-condition>
+  </qti-response-processing>
 </qti-assessment-item>`;
 
     setGeneratedXML(xml);
@@ -301,140 +355,11 @@ export default function GapMatchBuilder() {
     return Object.entries(styles).map(([k, v]) => `${k}:${v}`).join(";");
   };
 
-  const RichTextEditor = ({ content, onChange }: { content: string, onChange: (value: string) => void }) => {
-    const [value, setValue] = useState(content);
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-    const applyFormat = (tag: string) => {
-      if (!textareaRef.current) return;
-      
-      const { selectionStart, selectionEnd } = textareaRef.current;
-      const selectedText = value.substring(selectionStart, selectionEnd);
-      
-      if (selectionStart === selectionEnd) {
-        const newValue = 
-          value.substring(0, selectionStart) + 
-          `<${tag}></${tag}>` + 
-          value.substring(selectionEnd);
-        
-        setValue(newValue);
-        onChange(newValue);
-        
-        setTimeout(() => {
-          if (textareaRef.current) {
-            textareaRef.current.selectionStart = selectionStart + tag.length + 2;
-            textareaRef.current.selectionEnd = selectionStart + tag.length + 2;
-          }
-        }, 0);
-      } else {
-        const newValue = 
-          value.substring(0, selectionStart) + 
-          `<${tag}>${selectedText}</${tag}>` + 
-          value.substring(selectionEnd);
-        
-        setValue(newValue);
-        onChange(newValue);
-      }
-    };
-
-    return (
-      <div className="space-y-2">
-        <TooltipProvider>
-          <div className="flex gap-1 p-1 border rounded">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => applyFormat("b")}
-                >
-                  <Bold className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Bold</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => applyFormat("i")}
-                >
-                  <Italic className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Italic</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => applyFormat("u")}
-                >
-                  <Underline className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Underline</TooltipContent>
-            </Tooltip>
-          </div>
-        </TooltipProvider>
-        <Textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => {
-            setValue(e.target.value);
-            onChange(e.target.value);
-          }}
-          rows={4}
-          className="min-h-[100px]"
-        />
-      </div>
-    );
-  };
-
-  const renderContentEditor = (section: keyof Pick<GapMatchQuestion, 'instructions' | 'baseContent' | 'correctFeedback' | 'incorrectFeedback' | 'gapTexts'>) => {
+  const renderContentEditor = (section: keyof Pick<GapMatchQuestion, 'instructions' | 'baseContent' | 'correctFeedback' | 'incorrectFeedback'>) => {
     const content = question[section] || [];
-    const isGapTexts = section === "gapTexts";
 
     return (
       <div className="space-y-4">
-        {isGapTexts && (
-          <div className="space-y-2">
-            <Label>Predefined Buttons</Label>
-            <div className="flex flex-wrap gap-2">
-              {predefinedButtons.map((btn, index) => (
-                <Button
-                  key={index}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const newBlock: ContentBlock = {
-                      id: generateId("gap-text"),
-                      type: "button",
-                      content: btn.content,
-                      styles: { 
-                        fontSize: "18px", 
-                        fontWeight: "bold",
-                        padding: "8px 16px",
-                        borderRadius: "4px",
-                        backgroundColor: "#e2e8f0",
-                        border: "1px solid #cbd5e1"
-                      }
-                    };
-                    setQuestion(prev => ({
-                      ...prev,
-                      gapTexts: [...prev.gapTexts, newBlock]
-                    }));
-                  }}
-                >
-                  {btn.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {content.map(block => (
           <Card key={block.id} className="p-4">
             <div className="flex justify-between items-start mb-4">
@@ -444,7 +369,12 @@ export default function GapMatchBuilder() {
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={() => removeContentBlock(block.id, section)}
+                onClick={() => {
+                  setQuestion(prev => ({
+                    ...prev,
+                    [section]: prev[section].filter(b => b.id !== block.id)
+                  }));
+                }}
               >
                 <Trash2 className="w-4 h-4" />
               </Button>
@@ -452,8 +382,16 @@ export default function GapMatchBuilder() {
             
             {block.type === "text" && (
               <RichTextEditor
-                content={block.content}
-                onChange={(newContent) => updateContentBlock(block.id, { content: newContent }, section)}
+                value={block.content}
+                onChange={(newContent) => {
+                  setQuestion(prev => ({
+                    ...prev,
+                    [section]: prev[section].map(b => 
+                      b.id === block.id ? { ...b, content: newContent } : b
+                    )
+                  }));
+                }}
+                placeholder="Enter your content here. Use [GAP1], [GAP2], etc. to mark where gaps should appear."
               />
             )}
             
@@ -462,10 +400,17 @@ export default function GapMatchBuilder() {
                 <Label>Image URL</Label>
                 <Input
                   value={block.content}
-                  onChange={(e) => updateContentBlock(block.id, { content: e.target.value }, section)}
+                  onChange={(e) => {
+                    setQuestion(prev => ({
+                      ...prev,
+                      [section]: prev[section].map(b => 
+                        b.id === block.id ? { ...b, content: e.target.value } : b
+                      )
+                    }));
+                  }}
                   placeholder="https://example.com/image.jpg"
                 />
-                {block.content && (
+                {/* {block.content && (
                   <div className="mt-2">
                     <img 
                       src={block.content} 
@@ -474,35 +419,24 @@ export default function GapMatchBuilder() {
                       style={block.styles}
                     />
                   </div>
-                )}
+                )} */}
               </div>
             )}
             
             {block.type === "html" && (
               <Textarea
                 value={block.content}
-                onChange={(e) => updateContentBlock(block.id, { content: e.target.value }, section)}
+                onChange={(e) => {
+                  setQuestion(prev => ({
+                    ...prev,
+                    [section]: prev[section].map(b => 
+                      b.id === block.id ? { ...b, content: e.target.value } : b
+                    )
+                  }));
+                }}
                 rows={6}
                 className="font-mono text-sm min-h-[100px]"
               />
-            )}
-
-            {block.type === "button" && (
-              <div className="space-y-2">
-                <Label>Button Text</Label>
-                <Input
-                  value={block.content}
-                  onChange={(e) => updateContentBlock(block.id, { content: e.target.value }, section)}
-                />
-                <div className="mt-2">
-                  <div 
-                    style={block.styles}
-                    className="inline-flex items-center justify-center"
-                  >
-                    {block.content}
-                  </div>
-                </div>
-              </div>
             )}
             
             <Collapsible>
@@ -528,7 +462,12 @@ export default function GapMatchBuilder() {
                         if (k && v) acc[k] = v;
                         return acc;
                       }, {} as Record<string, string>);
-                      updateContentBlock(block.id, { styles }, section);
+                      setQuestion(prev => ({
+                        ...prev,
+                        [section]: prev[section].map(b => 
+                          b.id === block.id ? { ...b, styles } : b
+                        )
+                      }));
                     }}
                     placeholder="font-size: 16px; color: #333;"
                   />
@@ -542,57 +481,241 @@ export default function GapMatchBuilder() {
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={() => addContentBlock("text", section)}
+            onClick={() => {
+              const newBlock: ContentBlock = {
+                id: generateId("block"),
+                type: "text",
+                content: "New text content",
+                styles: {}
+              };
+              setQuestion(prev => ({
+                ...prev,
+                [section]: [...prev[section], newBlock]
+              }));
+            }}
           >
             <Plus className="w-4 h-4 mr-2" /> Add Text
           </Button>
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={() => addContentBlock("image", section)}
+            onClick={() => {
+              const newBlock: ContentBlock = {
+                id: generateId("block"),
+                type: "image",
+                content: "https://example.com/image.jpg",
+                styles: {}
+              };
+              setQuestion(prev => ({
+                ...prev,
+                [section]: [...prev[section], newBlock]
+              }));
+            }}
           >
             <ImageIcon className="w-4 h-4 mr-2" /> Add Image
           </Button>
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={() => addContentBlock("html", section)}
+            onClick={() => {
+              const newBlock: ContentBlock = {
+                id: generateId("block"),
+                type: "html",
+                content: "<p>New HTML content</p>",
+                styles: {}
+              };
+              setQuestion(prev => ({
+                ...prev,
+                [section]: [...prev[section], newBlock]
+              }));
+            }}
           >
             <Code className="w-4 h-4 mr-2" /> Add HTML
           </Button>
-          {isGapTexts && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => addContentBlock("button", section)}
-            >
-              <Plus className="w-4 h-4 mr-2" /> Add Button
-            </Button>
-          )}
         </div>
       </div>
     );
   };
 
+  const renderGapTextsEditor = () => {
+    return (
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label>Predefined Items (Quick Add)</Label>
+          <div className="flex flex-wrap gap-2">
+            {predefinedGapTexts.map((item, index) => (
+              <Button
+                key={index}
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const newGapText: GapText = {
+                    id: generateId("gaptext"),
+                    content: item.content,
+                    matchMax: 1
+                  };
+                  setQuestion(prev => ({
+                    ...prev,
+                    gapTexts: [...prev.gapTexts, newGapText]
+                  }));
+                }}
+              >
+                {item.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Button Style Suggestions</Label>
+          <ButtonSuggestions
+            onSuggestionClick={(buttonHTML) => {
+              const newGapText: GapText = {
+                id: generateId("gaptext"),
+                content: buttonHTML,
+                matchMax: 1
+              };
+              setQuestion(prev => ({
+                ...prev,
+                gapTexts: [...prev.gapTexts, newGapText]
+              }));
+            }}
+            size="sm"
+            defaultCollapsed={true}
+          />
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <Label>Draggable Items</Label>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                const newGapText: GapText = {
+                  id: generateId("gaptext"),
+                  content: "New item",
+                  matchMax: 1
+                };
+                setQuestion(prev => ({
+                  ...prev,
+                  gapTexts: [...prev.gapTexts, newGapText]
+                }));
+              }}
+            >
+              <Plus className="w-4 h-4 mr-2" /> Add Item
+            </Button>
+          </div>
+          
+          {question.gapTexts.map(gapText => (
+            <Card key={gapText.id} className="p-4">
+              <div className="flex justify-between items-start mb-4">
+                <Badge variant="outline">
+                  Draggable Item
+                </Badge>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    setQuestion(prev => ({
+                      ...prev,
+                      gapTexts: prev.gapTexts.filter(gt => gt.id !== gapText.id),
+                      gaps: prev.gaps.map(gap => 
+                        gap.correctGapTextId === gapText.id ? { ...gap, correctGapTextId: "" } : gap
+                      )
+                    }));
+                  }}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <Label>Content (supports HTML)</Label>
+                  <RichTextEditor
+                    value={gapText.content}
+                    onChange={(newContent) => {
+                      setQuestion(prev => ({
+                        ...prev,
+                        gapTexts: prev.gapTexts.map(gt => 
+                          gt.id === gapText.id ? { ...gt, content: newContent } : gt
+                        )
+                      }));
+                    }}
+                    placeholder="Enter item content (text, HTML, or styled button)"
+                  />
+                </div>
+                <div>
+                  <Label>Max Uses (0 = unlimited)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={gapText.matchMax}
+                    onChange={(e) => {
+                      setQuestion(prev => ({
+                        ...prev,
+                        gapTexts: prev.gapTexts.map(gt => 
+                          gt.id === gapText.id ? { ...gt, matchMax: parseInt(e.target.value) || 0 } : gt
+                        )
+                      }));
+                    }}
+                  />
+                </div>
+              </div>
+              
+             
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  };
   const renderGapPositions = () => {
     return (
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label>Gap Positions</Label>
+          <Label>Gap Positions & Correct Answers</Label>
           <div className="space-y-2">
             {question.gaps.map(gap => (
-              <div key={gap.id} className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  value={gap.position}
-                  onChange={(e) => updateGap(gap.id, { position: parseInt(e.target.value) || 0 })}
-                  className="w-20"
-                  placeholder="Position"
-                />
+              <div key={gap.id} className="flex items-center gap-2 p-3 border rounded">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium">Gap {gap.position}:</Label>
+                  <Badge variant="outline" className="text-xs">
+                    [GAP{gap.position}]
+                  </Badge>
+                </div>
+                <div className="flex-1">
+                  <Label className="text-xs text-gray-600">Correct Answer:</Label>
+                  <select
+                    value={gap.correctGapTextId || ""}
+                    onChange={(e) => {
+                      setQuestion(prev => ({
+                        ...prev,
+                        gaps: prev.gaps.map(g => 
+                          g.id === gap.id ? { ...g, correctGapTextId: e.target.value } : g
+                        )
+                      }));
+                    }}
+                    className="w-full p-1 border rounded text-sm"
+                  >
+                    <option value="">Select correct answer...</option>
+                    {question.gapTexts.map(gt => (
+                      <option key={gt.id} value={gt.id}>
+                        {gt.content.replace(/<[^>]*>/g, '').substring(0, 50)}...
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <Button 
                   variant="ghost" 
                   size="sm"
-                  onClick={() => removeGap(gap.id)}
+                  onClick={() => {
+                    setQuestion(prev => ({
+                      ...prev,
+                      gaps: prev.gaps.filter(g => g.id !== gap.id)
+                    }));
+                  }}
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
@@ -602,58 +725,38 @@ export default function GapMatchBuilder() {
           <Button 
             variant="outline" 
             size="sm"
-            onClick={addGap}
+            onClick={() => {
+              const newGap: Gap = {
+                id: generateId("gap"),
+                position: question.gaps.length + 1,
+                correctGapTextId: ""
+              };
+              setQuestion(prev => ({
+                ...prev,
+                gaps: [...prev.gaps, newGap]
+              }));
+            }}
           >
             <Plus className="w-4 h-4 mr-2" /> Add Gap Position
           </Button>
         </div>
 
-        {question.baseContent.length > 0 && question.baseContent[0].type === "text" && (
-          <div className="p-4 border rounded bg-white">
-            <h4 className="text-sm font-medium mb-2">Content Preview with Gaps</h4>
-            <div className="p-2 bg-gray-50 rounded">
-              {question.baseContent[0].content.split(" ").map((word, index) => {
-                const gap = question.gaps.find(g => g.position === index);
-                return (
-                  <span key={index} className="inline-flex items-baseline mx-1">
-                    {word}
-                    {gap && (
-                      <span className="relative mx-1">
-                        <span className="inline-block w-6 h-4 border-b-2 border-red-400">
-                          <span className="absolute -top-4 left-0 text-xs text-red-500">
-                            {gap.id}
-                          </span>
-                        </span>
-                      </span>
-                    )}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label>Shuffle Gaps</Label>
-            <Toggle
-              pressed={question.shuffle}
-              onPressedChange={() => setQuestion(prev => ({ ...prev, shuffle: !prev.shuffle }))}
-              className="w-full"
-            >
-              {question.shuffle ? "Enabled" : "Disabled"}
-            </Toggle>
-          </div>
-          <div>
-            <Label>Max Associations</Label>
-            <Input
-              type="number"
-              value={question.maxAssociations}
-              onChange={(e) => setQuestion(prev => ({ 
-                ...prev, 
-                maxAssociations: parseInt(e.target.value) || 0 
-              }))}
-            />
+        <div className="p-4 border rounded bg-white">
+          <h4 className="text-sm font-medium mb-2">Content Preview with Gaps</h4>
+          <div className="p-2 bg-gray-50 rounded">
+            {question.baseContent.map(block => {
+              let content = block.content;
+              question.gaps.forEach(gap => {
+                const gapText = question.gapTexts.find(gt => gt.id === gap.correctGapTextId);
+                const answerPreview = gapText ? 
+                  `<span class="bg-green-100 border border-green-300 px-2 py-1 rounded text-sm">${gapText.content}</span>` : 
+                  `<span class="bg-gray-200 border border-gray-300 px-2 py-1 rounded text-sm">?</span>`;
+                content = content.replace(`[GAP${gap.position}]`, answerPreview);
+              });
+              return (
+                <div key={block.id} dangerouslySetInnerHTML={{ __html: content }} />
+              );
+            })}
           </div>
         </div>
       </div>
@@ -729,6 +832,7 @@ export default function GapMatchBuilder() {
                 <TabsTrigger value="gaps">Gaps & Buttons</TabsTrigger>
                 <TabsTrigger value="feedback">Feedback</TabsTrigger>
                 <TabsTrigger value="styles">Styles</TabsTrigger>
+                <TabsTrigger value="preview">Preview</TabsTrigger>
               </TabsList>
               
               <TabsContent value="content" className="space-y-6">
@@ -789,7 +893,7 @@ export default function GapMatchBuilder() {
               <TabsContent value="gaps" className="space-y-6">
                 <Collapsible open={expandedPanels.gapTexts} onOpenChange={() => togglePanel("gapTexts")}>
                   <div className="flex items-center justify-between">
-                    <h3 className="font-medium">Draggable Buttons</h3>
+                    <h3 className="font-medium">Draggable Items</h3>
                     <CollapsibleTrigger asChild>
                       <Button variant="ghost" size="sm">
                         {expandedPanels.gapTexts ? (
@@ -801,12 +905,12 @@ export default function GapMatchBuilder() {
                     </CollapsibleTrigger>
                   </div>
                   <CollapsibleContent>
-                    {renderContentEditor("gapTexts")}
+                    {renderGapTextsEditor()}
                   </CollapsibleContent>
                 </Collapsible>
                 
                 <div>
-                  <h3 className="font-medium mb-2">Gap Positions</h3>
+                  <h3 className="font-medium mb-2">Gap Positions & Answers</h3>
                   {renderGapPositions()}
                 </div>
               </TabsContent>
@@ -924,6 +1028,159 @@ export default function GapMatchBuilder() {
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
+              </TabsContent>
+              
+              <TabsContent value="preview" className="space-y-6">
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <h3 className="text-xl font-bold mb-2">Question Preview</h3>
+                    <p className="text-gray-600">See how your gap match question will appear to students</p>
+                  </div>
+                  
+                  <Card className="p-6" style={question.globalStyles}>
+                    <div className="space-y-6">
+                      {/* Instructions */}
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-gray-700">Instructions:</h4>
+                        <div className="space-y-2">
+                          {question.instructions.map(block => (
+                            <div key={block.id}>
+                              {block.type === "image" ? (
+                                <img 
+                                  src={block.content} 
+                                  alt="Instruction image" 
+                                  className="max-w-full h-auto" 
+                                  style={block.styles}
+                                />
+                              ) : (
+                                <div 
+                                  style={block.styles}
+                                  dangerouslySetInnerHTML={{ __html: block.content }} 
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Main Content with Gaps */}
+                      <div className="space-y-4">
+                        <h4 className="font-semibold text-gray-700">Question Content:</h4>
+                        <div className="space-y-2">
+                          {question.baseContent.map(block => {
+                            let content = block.content;
+                            
+                            // Replace gaps with visual placeholders
+                            question.gaps.forEach(gap => {
+                              const gapPattern = new RegExp(`\\[GAP${gap.position}\\]`, 'g');
+                              const correctAnswer = question.gapTexts.find(gt => gt.id === gap.correctGapTextId);
+                              const answerPreview = correctAnswer ? 
+                                `<span class="inline-block min-w-[100px] px-3 py-1 mx-1 bg-blue-50 border-2 border-dashed border-blue-300 rounded text-center text-blue-700 font-medium">Drop Zone ${gap.position}</span>` :
+                                `<span class="inline-block min-w-[100px] px-3 py-1 mx-1 bg-gray-100 border-2 border-dashed border-gray-300 rounded text-center text-gray-500">Gap ${gap.position}</span>`;
+                              content = content.replace(gapPattern, answerPreview);
+                            });
+
+                            return (
+                              <div key={block.id}>
+                                {block.type === "image" ? (
+                                  <img 
+                                    src={block.content} 
+                                    alt="Content image" 
+                                    className="max-w-full h-auto" 
+                                    style={block.styles}
+                                  />
+                                ) : (
+                                  <div 
+                                    style={block.styles}
+                                    dangerouslySetInnerHTML={{ __html: content }} 
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Draggable Items */}
+                      <div className="space-y-4">
+                        <h4 className="font-semibold text-gray-700">Draggable Items:</h4>
+                        <div className="flex flex-wrap gap-3 p-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg">
+                          {question.gapTexts.map(gapText => (
+                            <div
+                              key={gapText.id}
+                              className="cursor-move bg-white border border-gray-300 rounded shadow-sm hover:shadow-md transition-shadow p-2"
+                              style={{ 
+                                maxWidth: '200px',
+                                ...(gapText.styles || {})
+                              }}
+                            >
+                              <div 
+                                dangerouslySetInnerHTML={{ __html: gapText.content }} 
+                              />
+                              <div className="text-xs text-gray-500 mt-1">
+                                Max uses: {gapText.matchMax || "Unlimited"}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-sm text-gray-600 italic">
+                          Students would drag these items to the drop zones above
+                        </p>
+                      </div>
+
+                      {/* Feedback Preview */}
+                      <div className="space-y-4">
+                        <h4 className="font-semibold text-gray-700">Feedback Messages:</h4>
+                        
+                        <div className="space-y-2">
+                          <div className="p-3 bg-green-50 border border-green-200 rounded">
+                            <div className="text-sm font-medium text-green-800 mb-1">Correct Answer Feedback:</div>
+                            {question.correctFeedback.map(block => (
+                              <div 
+                                key={block.id}
+                                style={block.styles}
+                                dangerouslySetInnerHTML={{ __html: block.content }} 
+                              />
+                            ))}
+                          </div>
+                          
+                          <div className="p-3 bg-red-50 border border-red-200 rounded">
+                            <div className="text-sm font-medium text-red-800 mb-1">Incorrect Answer Feedback:</div>
+                            {question.incorrectFeedback.map(block => (
+                              <div 
+                                key={block.id}
+                                style={block.styles}
+                                dangerouslySetInnerHTML={{ __html: block.content }} 
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Answer Key */}
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-gray-700">Answer Key (Teacher View):</h4>
+                        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                          <div className="space-y-1">
+                            {question.gaps.map(gap => {
+                              const correctAnswer = question.gapTexts.find(gt => gt.id === gap.correctGapTextId);
+                              return (
+                                <div key={gap.id} className="text-sm">
+                                  <span className="font-medium">Gap {gap.position}:</span>{' '}
+                                  {correctAnswer ? (
+                                    <span dangerouslySetInnerHTML={{ __html: correctAnswer.content }} />
+                                  ) : (
+                                    <span className="text-red-500">No answer assigned</span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
               </TabsContent>
             </Tabs>
           </CardContent>

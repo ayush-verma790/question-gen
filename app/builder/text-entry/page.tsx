@@ -1,19 +1,46 @@
 "use client";
 
-import React, { useState, useCallback, useMemo, useEffect, memo, useRef } from "react";
+import React, {
+  useState,
+  useCallback,
+  useMemo,
+  useEffect,
+  memo,
+  useRef,
+} from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
-import { Trash2, Plus, Eye, TextCursorInput, Upload, FileText } from "lucide-react";
 import {
-  Image, Video, Music, Bold, Italic, Underline,
-  Heading1, Heading2, Pilcrow, Type, List, ListOrdered,
-  Link, Palette
-} from 'lucide-react';
-import { ButtonSuggestions } from "@/components/button-suggestions";// Types
+  Trash2,
+  Plus,
+  Eye,
+  TextCursorInput,
+  Upload,
+  FileText,
+} from "lucide-react";
+import {
+  Image,
+  Video,
+  Music,
+  Bold,
+  Italic,
+  Underline,
+  Heading1,
+  Heading2,
+  Pilcrow,
+  Type,
+  List,
+  ListOrdered,
+  Link,
+  Palette,
+} from "lucide-react";
+import { ButtonSuggestions } from "@/components/button-suggestions";
+import { PreviewRenderer } from "@/components/preview-renderer";
+import { useXMLGeneration } from "@/hooks/use-xml-generation"; // Types
 type ContentBlock = {
   id: string;
   type: "text" | "image" | "video" | "audio";
@@ -57,24 +84,31 @@ const ContentBlockEditor = memo(
     onInsertTextBox?: (blockId: string) => void;
   }) => {
     // State for each component instance
-    const [selectedText, setSelectedText] = useState('');
-    const [selectionRange, setSelectionRange] = useState<{start: number, end: number} | null>(null);
+    const [selectedText, setSelectedText] = useState("");
+    const [selectionRange, setSelectionRange] = useState<{
+      start: number;
+      end: number;
+    } | null>(null);
     const [showMediaModal, setShowMediaModal] = useState(false);
-    const [mediaType, setMediaType] = useState<'image' | 'video' | 'audio'>('image');
-    const [mediaUrl, setMediaUrl] = useState('');
-    const [mediaAlt, setMediaAlt] = useState('');
-    const [activeTextareaIndex, setActiveTextareaIndex] = useState<number | null>(null);
+    const [mediaType, setMediaType] = useState<"image" | "video" | "audio">(
+      "image"
+    );
+    const [mediaUrl, setMediaUrl] = useState("");
+    const [mediaAlt, setMediaAlt] = useState("");
+    const [activeTextareaIndex, setActiveTextareaIndex] = useState<
+      number | null
+    >(null);
     const textareaRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
-    
+
     // Image editing state
     const [showImageEditor, setShowImageEditor] = useState(false);
-    const [selectedImageTag, setSelectedImageTag] = useState('');
+    const [selectedImageTag, setSelectedImageTag] = useState("");
     const [imageEditProps, setImageEditProps] = useState({
-      src: '',
-      alt: '',
-      width: '',
-      height: '',
-      className: 'max-w-full h-auto'
+      src: "",
+      alt: "",
+      width: "",
+      height: "",
+      className: "max-w-full h-auto",
     });
 
     const updateBlock = (index: number, updatedBlock: ContentBlock) => {
@@ -105,147 +139,158 @@ const ContentBlockEditor = memo(
 
     // Handle text selection
     const handleTextSelection = (index: number) => {
-      if (typeof window === 'undefined') return; // Skip during SSR
-      
+      if (typeof window === "undefined") return; // Skip during SSR
+
       const textarea = textareaRefs.current[index];
       if (!textarea) return;
-      
+
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
-      
+
       // Always set the active textarea index when user interacts with it
       setActiveTextareaIndex(index);
-      
+
       if (start !== end) {
         const selectedText = textarea.value.substring(start, end);
         setSelectedText(selectedText);
         setSelectionRange({ start, end });
-        
+
         // Check if selected text is an img tag
         const imgTagRegex = /<img[^>]*>/i;
         if (imgTagRegex.test(selectedText)) {
           handleImageSelection(selectedText, index, start, end);
         }
       } else {
-        setSelectedText('');
+        setSelectedText("");
         setSelectionRange(null);
       }
     };
 
     // Handle image tag selection for editing
-    const handleImageSelection = (imgTag: string, textareaIndex: number, start: number, end: number) => {
+    const handleImageSelection = (
+      imgTag: string,
+      textareaIndex: number,
+      start: number,
+      end: number
+    ) => {
       setSelectedImageTag(imgTag);
       setActiveTextareaIndex(textareaIndex);
       setSelectionRange({ start, end });
-      
+
       // Parse image attributes
       const srcMatch = imgTag.match(/src="([^"]*)"/);
       const altMatch = imgTag.match(/alt="([^"]*)"/);
       const widthMatch = imgTag.match(/width="([^"]*)"/);
       const heightMatch = imgTag.match(/height="([^"]*)"/);
       const classMatch = imgTag.match(/class="([^"]*)"/);
-      
+
       setImageEditProps({
-        src: srcMatch ? srcMatch[1] : '',
-        alt: altMatch ? altMatch[1] : '',
-        width: widthMatch ? widthMatch[1] : '',
-        height: heightMatch ? heightMatch[1] : '',
-        className: classMatch ? classMatch[1] : 'max-w-full h-auto'
+        src: srcMatch ? srcMatch[1] : "",
+        alt: altMatch ? altMatch[1] : "",
+        width: widthMatch ? widthMatch[1] : "",
+        height: heightMatch ? heightMatch[1] : "",
+        className: classMatch ? classMatch[1] : "max-w-full h-auto",
       });
-      
+
       setShowImageEditor(true);
     };
 
     // Handle image property updates
     const handleUpdateImage = () => {
       if (activeTextareaIndex === null || !selectionRange) return;
-      
+
       const block = blocks[activeTextareaIndex];
       const { src, alt, width, height, className } = imageEditProps;
-      
+
       let newImageTag = `<img src="${src}" alt="${alt}"`;
       if (className) newImageTag += ` class="${className}"`;
       if (width) newImageTag += ` width="${width}"`;
       if (height) newImageTag += ` height="${height}"`;
-      newImageTag += ' />';
-      
+      newImageTag += " />";
+
       const before = block.content.substring(0, selectionRange.start);
       const after = block.content.substring(selectionRange.end);
-      
+
       updateBlock(activeTextareaIndex, {
         ...block,
-        content: before + newImageTag + after
+        content: before + newImageTag + after,
       });
-      
+
       setShowImageEditor(false);
-      setSelectedImageTag('');
+      setSelectedImageTag("");
       setSelectionRange(null);
     };
 
     // Simple function to insert tags at cursor or wrap selection
-    const insertHtmlTag = (tag: string, extraAttrs = '', isSelfClosing = false) => {
+    const insertHtmlTag = (
+      tag: string,
+      extraAttrs = "",
+      isSelfClosing = false
+    ) => {
       // Find which textarea to use
       let textareaIndex = activeTextareaIndex;
-      
+
       // If no active textarea, try to find the last clicked one
       if (textareaIndex === null) {
         // Use the first textarea as fallback
         textareaIndex = 0;
       }
-      
+
       if (textareaIndex === null || !textareaRefs.current[textareaIndex]) {
-        alert('Please click in a text area first');
+        alert("Please click in a text area first");
         return;
       }
-      
+
       const textarea = textareaRefs.current[textareaIndex];
       const block = blocks[textareaIndex];
-      
+
       // Get current cursor position and selection
       const start = textarea.selectionStart || 0;
       const end = textarea.selectionEnd || 0;
       const hasSelection = start !== end;
-      
+
       // Get text parts
       const beforeCursor = block.content.substring(0, start);
-      const selectedOrEmpty = hasSelection ? block.content.substring(start, end) : '';
+      const selectedOrEmpty = hasSelection
+        ? block.content.substring(start, end)
+        : "";
       const afterCursor = block.content.substring(end);
-      
+
       // Create the HTML tag to insert
-      let htmlToInsert = '';
+      let htmlToInsert = "";
       let newCursorPosition = start;
-      
+
       if (isSelfClosing) {
         // For self-closing tags like <br />, <hr />
         htmlToInsert = extraAttrs ? `<${tag} ${extraAttrs} />` : `<${tag} />`;
         newCursorPosition = start + htmlToInsert.length;
       } else if (hasSelection) {
         // If text is selected, wrap it
-        htmlToInsert = extraAttrs 
+        htmlToInsert = extraAttrs
           ? `<${tag} ${extraAttrs}>${selectedOrEmpty}</${tag}>`
           : `<${tag}>${selectedOrEmpty}</${tag}>`;
         newCursorPosition = start + htmlToInsert.length;
       } else {
         // If no selection, insert opening and closing tags
-        htmlToInsert = extraAttrs 
+        htmlToInsert = extraAttrs
           ? `<${tag} ${extraAttrs}></${tag}>`
           : `<${tag}></${tag}>`;
         // Place cursor between the tags
-        const openingTagLength = extraAttrs 
-          ? `<${tag} ${extraAttrs}>`.length 
+        const openingTagLength = extraAttrs
+          ? `<${tag} ${extraAttrs}>`.length
           : `<${tag}>`.length;
         newCursorPosition = start + openingTagLength;
       }
-      
+
       // Create new content
       const newContent = beforeCursor + htmlToInsert + afterCursor;
-      
+
       // Update the block
       updateBlock(textareaIndex, {
         ...block,
-        content: newContent
+        content: newContent,
       });
-      
+
       // Focus and position cursor
       setTimeout(() => {
         textarea.focus();
@@ -256,7 +301,7 @@ const ContentBlockEditor = memo(
     // Insert HTML tag at cursor position
     const insertTag = (tag: string, isSelfClosing = false) => {
       if (activeTextareaIndex === null) return;
-      
+
       const block = blocks[activeTextareaIndex];
       const textarea = textareaRefs.current[activeTextareaIndex];
       if (!textarea) return;
@@ -264,19 +309,19 @@ const ContentBlockEditor = memo(
       const cursorPos = textarea.selectionStart;
       const before = block.content.substring(0, cursorPos);
       const after = block.content.substring(cursorPos);
-      
+
       const tagToInsert = isSelfClosing ? `<${tag} />` : `<${tag}></${tag}>`;
-      
+
       updateBlock(activeTextareaIndex, {
         ...block,
-        content: before + tagToInsert + after
+        content: before + tagToInsert + after,
       });
     };
 
     // Handle media insertion
     const handleInsertMedia = () => {
       if (activeTextareaIndex === null) return;
-      
+
       const block = blocks[activeTextareaIndex];
       const textarea = textareaRefs.current[activeTextareaIndex];
       if (!textarea) return;
@@ -284,42 +329,42 @@ const ContentBlockEditor = memo(
       const cursorPos = textarea.selectionStart || 0;
       const before = block.content.substring(0, cursorPos);
       const after = block.content.substring(cursorPos);
-      
-      let mediaTag = '';
-      
+
+      let mediaTag = "";
+
       switch (mediaType) {
-        case 'image':
+        case "image":
           mediaTag = `<img src="${mediaUrl}" alt="${mediaAlt}" class="max-w-full h-auto" />`;
           break;
-        case 'video':
+        case "video":
           mediaTag = `<video src="${mediaUrl}" controls class="max-w-full"></video>`;
           break;
-        case 'audio':
+        case "audio":
           mediaTag = `<audio src="${mediaUrl}" controls></audio>`;
           break;
       }
-      
+
       updateBlock(activeTextareaIndex, {
         ...block,
-        content: before + mediaTag + after
+        content: before + mediaTag + after,
       });
-      
+
       // Focus back to textarea and position cursor after inserted content
       setTimeout(() => {
         textarea.focus();
         const newCursorPos = before.length + mediaTag.length;
         textarea.setSelectionRange(newCursorPos, newCursorPos);
       }, 50);
-      
+
       setShowMediaModal(false);
-      setMediaUrl('');
-      setMediaAlt('');
+      setMediaUrl("");
+      setMediaAlt("");
     };
 
     // Handle button suggestion insertion
     const handleButtonSuggestion = (buttonHTML: string) => {
       if (activeTextareaIndex === null) return;
-      
+
       const block = blocks[activeTextareaIndex];
       const textarea = textareaRefs.current[activeTextareaIndex];
       if (!textarea) return;
@@ -327,12 +372,12 @@ const ContentBlockEditor = memo(
       const cursorPos = textarea.selectionStart || 0;
       const before = block.content.substring(0, cursorPos);
       const after = block.content.substring(cursorPos);
-      
+
       updateBlock(activeTextareaIndex, {
         ...block,
-        content: before + buttonHTML + after
+        content: before + buttonHTML + after,
       });
-      
+
       // Focus back to textarea and position cursor after inserted content
       setTimeout(() => {
         textarea.focus();
@@ -340,7 +385,7 @@ const ContentBlockEditor = memo(
         textarea.setSelectionRange(newCursorPos, newCursorPos);
       }, 50);
     };
-    
+
     return (
       <Card>
         <CardHeader>
@@ -391,7 +436,7 @@ const ContentBlockEditor = memo(
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => insertHtmlTag('strong')}
+                        onClick={() => insertHtmlTag("strong")}
                         className="p-1 h-8 w-8"
                         title="Bold - Wrap selection or insert tags"
                       >
@@ -400,7 +445,7 @@ const ContentBlockEditor = memo(
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => insertHtmlTag('em')}
+                        onClick={() => insertHtmlTag("em")}
                         className="p-1 h-8 w-8"
                         title="Italic - Wrap selection or insert tags"
                       >
@@ -409,7 +454,7 @@ const ContentBlockEditor = memo(
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => insertHtmlTag('u')}
+                        onClick={() => insertHtmlTag("u")}
                         className="p-1 h-8 w-8"
                         title="Underline - Wrap selection or insert tags"
                       >
@@ -418,7 +463,9 @@ const ContentBlockEditor = memo(
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => insertHtmlTag('mark', 'class="highlight"')}
+                        onClick={() =>
+                          insertHtmlTag("mark", 'class="highlight"')
+                        }
                         className="px-2 py-1 text-xs"
                         title="Highlight - Wrap selection or insert tags"
                       >
@@ -427,7 +474,9 @@ const ContentBlockEditor = memo(
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => insertHtmlTag('span', 'style="color: red;"')}
+                        onClick={() =>
+                          insertHtmlTag("span", 'style="color: red;"')
+                        }
                         className="px-2 py-1 text-xs"
                         title="Red Text - Wrap selection or insert tags"
                       >
@@ -435,93 +484,90 @@ const ContentBlockEditor = memo(
                       </Button>
                     </div>
 
-                  
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => insertHtmlTag('h1')}
-                        className="p-1 h-8 w-8"
-                        title="Heading 1 - Wrap selection or insert tags"
-                      >
-                        <Heading1 className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => insertHtmlTag('h2')}
-                        className="p-1 h-8 w-8"
-                        title="Heading 2 - Wrap selection or insert tags"
-                      >
-                        <Heading2 className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => insertHtmlTag('p')}
-                        className="p-1 h-8 w-8"
-                        title="Paragraph - Wrap selection or insert tags"
-                      >
-                        <Pilcrow className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => insertHtmlTag('br', '', true)}
-                        className="px-2 py-1 text-xs"
-                        title="Line Break - Insert at cursor"
-                      >
-                        BR
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => insertHtmlTag('hr', '', true)}
-                        className="px-2 py-1 text-xs"
-                        title="Horizontal Rule - Insert at cursor"
-                      >
-                        HR
-                      </Button>
-                
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => insertHtmlTag("h1")}
+                      className="p-1 h-8 w-8"
+                      title="Heading 1 - Wrap selection or insert tags"
+                    >
+                      <Heading1 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => insertHtmlTag("h2")}
+                      className="p-1 h-8 w-8"
+                      title="Heading 2 - Wrap selection or insert tags"
+                    >
+                      <Heading2 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => insertHtmlTag("p")}
+                      className="p-1 h-8 w-8"
+                      title="Paragraph - Wrap selection or insert tags"
+                    >
+                      <Pilcrow className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => insertHtmlTag("br", "", true)}
+                      className="px-2 py-1 text-xs"
+                      title="Line Break - Insert at cursor"
+                    >
+                      BR
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => insertHtmlTag("hr", "", true)}
+                      className="px-2 py-1 text-xs"
+                      title="Horizontal Rule - Insert at cursor"
+                    >
+                      HR
+                    </Button>
 
                     {/* Lists and Links */}
-                   
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => insertHtmlTag('ul')}
-                        className="p-1 h-8 w-8"
-                        title="Unordered List - Wrap selection or insert tags"
-                      >
-                        <List className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => insertHtmlTag('ol')}
-                        className="p-1 h-8 w-8"
-                        title="Ordered List - Wrap selection or insert tags"
-                      >
-                        <ListOrdered className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => insertHtmlTag('li')}
-                        className="px-2 py-1 text-xs"
-                        title="List Item - Wrap selection or insert tags"
-                      >
-                        LI
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => insertHtmlTag('a', 'href="#"')}
-                        className="p-1 h-8 w-8"
-                        title="Link - Wrap selection or insert tags"
-                      >
-                        <Link className="w-4 h-4" />
-                      </Button>
-                    
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => insertHtmlTag("ul")}
+                      className="p-1 h-8 w-8"
+                      title="Unordered List - Wrap selection or insert tags"
+                    >
+                      <List className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => insertHtmlTag("ol")}
+                      className="p-1 h-8 w-8"
+                      title="Ordered List - Wrap selection or insert tags"
+                    >
+                      <ListOrdered className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => insertHtmlTag("li")}
+                      className="px-2 py-1 text-xs"
+                      title="List Item - Wrap selection or insert tags"
+                    >
+                      LI
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => insertHtmlTag("a", 'href="#"')}
+                      className="p-1 h-8 w-8"
+                      title="Link - Wrap selection or insert tags"
+                    >
+                      <Link className="w-4 h-4" />
+                    </Button>
 
                     {/* Media Insert */}
                     <div className="flex flex-wrap gap-2 p-2 border rounded bg-gray-50">
@@ -531,7 +577,7 @@ const ContentBlockEditor = memo(
                         size="sm"
                         onClick={() => {
                           setActiveTextareaIndex(index);
-                          setMediaType('image');
+                          setMediaType("image");
                           setShowMediaModal(true);
                         }}
                         className="px-2 py-1 text-xs flex items-center gap-1"
@@ -543,7 +589,7 @@ const ContentBlockEditor = memo(
                         size="sm"
                         onClick={() => {
                           setActiveTextareaIndex(index);
-                          setMediaType('video');
+                          setMediaType("video");
                           setShowMediaModal(true);
                         }}
                         className="px-2 py-1 text-xs flex items-center gap-1"
@@ -555,7 +601,7 @@ const ContentBlockEditor = memo(
                         size="sm"
                         onClick={() => {
                           setActiveTextareaIndex(index);
-                          setMediaType('audio');
+                          setMediaType("audio");
                           setShowMediaModal(true);
                         }}
                         className="px-2 py-1 text-xs flex items-center gap-1"
@@ -576,7 +622,7 @@ const ContentBlockEditor = memo(
                         placeholder={`Enter ${mediaType} URL`}
                         className="w-full p-2 border rounded mb-2"
                       />
-                      {mediaType === 'image' && (
+                      {mediaType === "image" && (
                         <input
                           type="text"
                           value={mediaAlt}
@@ -607,56 +653,93 @@ const ContentBlockEditor = memo(
                   {/* Image Editor Modal */}
                   {showImageEditor && (
                     <div className="absolute top-0 left-0 right-0 bg-white border rounded-lg shadow-lg p-4 z-50">
-                      <h3 className="font-medium mb-2">Edit Image Properties</h3>
+                      <h3 className="font-medium mb-2">
+                        Edit Image Properties
+                      </h3>
                       <div className="space-y-3">
                         <div>
-                          <label className="block text-sm font-medium mb-1">Image URL</label>
+                          <label className="block text-sm font-medium mb-1">
+                            Image URL
+                          </label>
                           <input
                             type="text"
                             value={imageEditProps.src}
-                            onChange={(e) => setImageEditProps(prev => ({ ...prev, src: e.target.value }))}
+                            onChange={(e) =>
+                              setImageEditProps((prev) => ({
+                                ...prev,
+                                src: e.target.value,
+                              }))
+                            }
                             placeholder="Image URL"
                             className="w-full p-2 border rounded"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium mb-1">Alt Text</label>
+                          <label className="block text-sm font-medium mb-1">
+                            Alt Text
+                          </label>
                           <input
                             type="text"
                             value={imageEditProps.alt}
-                            onChange={(e) => setImageEditProps(prev => ({ ...prev, alt: e.target.value }))}
+                            onChange={(e) =>
+                              setImageEditProps((prev) => ({
+                                ...prev,
+                                alt: e.target.value,
+                              }))
+                            }
                             placeholder="Alt text"
                             className="w-full p-2 border rounded"
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="block text-sm font-medium mb-1">Width</label>
+                            <label className="block text-sm font-medium mb-1">
+                              Width
+                            </label>
                             <input
                               type="text"
                               value={imageEditProps.width}
-                              onChange={(e) => setImageEditProps(prev => ({ ...prev, width: e.target.value }))}
+                              onChange={(e) =>
+                                setImageEditProps((prev) => ({
+                                  ...prev,
+                                  width: e.target.value,
+                                }))
+                              }
                               placeholder="e.g., 300px or 50%"
                               className="w-full p-2 border rounded"
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-medium mb-1">Height</label>
+                            <label className="block text-sm font-medium mb-1">
+                              Height
+                            </label>
                             <input
                               type="text"
                               value={imageEditProps.height}
-                              onChange={(e) => setImageEditProps(prev => ({ ...prev, height: e.target.value }))}
+                              onChange={(e) =>
+                                setImageEditProps((prev) => ({
+                                  ...prev,
+                                  height: e.target.value,
+                                }))
+                              }
                               placeholder="e.g., 200px or auto"
                               className="w-full p-2 border rounded"
                             />
                           </div>
                         </div>
                         <div>
-                          <label className="block text-sm font-medium mb-1">CSS Classes</label>
+                          <label className="block text-sm font-medium mb-1">
+                            CSS Classes
+                          </label>
                           <input
                             type="text"
                             value={imageEditProps.className}
-                            onChange={(e) => setImageEditProps(prev => ({ ...prev, className: e.target.value }))}
+                            onChange={(e) =>
+                              setImageEditProps((prev) => ({
+                                ...prev,
+                                className: e.target.value,
+                              }))
+                            }
                             placeholder="CSS classes"
                             className="w-full p-2 border rounded"
                           />
@@ -670,48 +753,51 @@ const ContentBlockEditor = memo(
                         >
                           Cancel
                         </Button>
-                        <Button
-                          size="sm"
-                          onClick={handleUpdateImage}
-                        >
+                        <Button size="sm" onClick={handleUpdateImage}>
                           Update Image
                         </Button>
                       </div>
                     </div>
                   )}
 
-
                   <textarea
                     ref={(el) => {
                       textareaRefs.current[index] = el;
                     }}
-                    value={block.content.replace(/<br\s*\/?>/gi, '\n')}
+                    value={block.content.replace(/<br\s*\/?>/gi, "\n")}
                     placeholder="Enter text content here [1]"
                     onChange={(e) =>
-                      updateBlock(index, { ...block, content: e.target.value.replace(/\n/g, '<br/>') })
+                      updateBlock(index, {
+                        ...block,
+                        content: e.target.value.replace(/\n/g, "<br/>"),
+                      })
                     }
                     onSelect={() => handleTextSelection(index)}
                     onFocus={() => setActiveTextareaIndex(index)}
                     onClick={() => setActiveTextareaIndex(index)}
                     className="w-full min-h-[100px] border p-2 rounded bg-white"
                   />
-                  
+
                   {/* Button Suggestions Section */}
                   <div className="mt-4">
-                    <ButtonSuggestions 
+                    <ButtonSuggestions
                       onSuggestionClick={handleButtonSuggestion}
                       className=""
                       size="md"
                       defaultCollapsed={true}
                     />
                   </div>
-                  
+
                   <div className="text-xs text-gray-500 mt-3 bg-gray-50 px-3 py-2 rounded-lg border-l-4 border-gray-300">
-                    <strong>💡 Pro Tips:</strong> Use HTML tags like &lt;br&gt;, &lt;strong&gt;, &lt;p&gt;, etc. • 
-                    Select text and click formatting buttons to wrap it • 
-                    Click buttons without selection to insert empty tags at cursor • 
-                    Use button suggestions above for quick interactive elements •
-                    <strong> Select an &lt;img&gt; tag to edit its properties</strong>
+                    <strong>💡 Pro Tips:</strong> Use HTML tags like &lt;br&gt;,
+                    &lt;strong&gt;, &lt;p&gt;, etc. • Select text and click
+                    formatting buttons to wrap it • Click buttons without
+                    selection to insert empty tags at cursor • Use button
+                    suggestions above for quick interactive elements •
+                    <strong>
+                      {" "}
+                      Select an &lt;img&gt; tag to edit its properties
+                    </strong>
                   </div>
                 </div>
               ) : (
@@ -720,11 +806,11 @@ const ContentBlockEditor = memo(
                     <div>
                       <Label>Content URL</Label>
                       <Input
-                        value={block.content.replace(/<br\s*\/?>/gi, ' ')}
+                        value={block.content.replace(/<br\s*\/?>/gi, " ")}
                         onChange={(e) =>
                           updateBlock(index, {
                             ...block,
-                            content: e.target.value.replace(/ +/g, '<br/>'),
+                            content: e.target.value.replace(/ +/g, "<br/>"),
                           })
                         }
                       />
@@ -823,9 +909,11 @@ const QuestionPreview = memo(
 
     const checkAnswers = () => {
       const allCorrect = textEntryBoxes.every((_, index) => {
-        const userAnswer = userAnswers[index] || '';
-        const correctAnswer = correctAnswers[index] || '';
-        return userAnswer.trim().toLowerCase() === correctAnswer.trim().toLowerCase();
+        const userAnswer = userAnswers[index] || "";
+        const correctAnswer = correctAnswers[index] || "";
+        return (
+          userAnswer.trim().toLowerCase() === correctAnswer.trim().toLowerCase()
+        );
       });
       setIsCorrect(allCorrect);
       setShowFeedback(true);
@@ -834,7 +922,7 @@ const QuestionPreview = memo(
     const resetAnswers = () => {
       setUserAnswers([]);
       setShowFeedback(false);
-      textEntryBoxes.forEach((_, index) => onAnswerChange(index, ''));
+      textEntryBoxes.forEach((_, index) => onAnswerChange(index, ""));
     };
     const renderedBlocks = useMemo(() => {
       return promptBlocks.map((block) => {
@@ -861,7 +949,7 @@ const QuestionPreview = memo(
             const idx = parseInt(match[1], 10) - 1;
             const box = textEntryBoxes[idx];
             const widthClass = box?.widthClass || "qti-input-width-5";
-            const value = userAnswers[idx] || '';
+            const value = userAnswers[idx] || "";
 
             const preceding = htmlContent.slice(lastIndex, match.index);
             if (preceding) {
@@ -966,11 +1054,14 @@ const QuestionPreview = memo(
           {promptBlocks.length > 0 ? (
             <div className="space-y-4">
               {renderedBlocks}
-              
+
               {/* Interactive Controls */}
               {textEntryBoxes.length > 0 && (
                 <div className="flex gap-2 mt-6 pt-4 border-t">
-                  <Button onClick={checkAnswers} className="bg-blue-600 hover:bg-blue-700">
+                  <Button
+                    onClick={checkAnswers}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
                     Check Answers
                   </Button>
                   <Button variant="outline" onClick={resetAnswers}>
@@ -981,27 +1072,40 @@ const QuestionPreview = memo(
 
               {/* Feedback Display */}
               {showFeedback && (
-                <div className={`mt-4 p-4 rounded-lg border ${
-                  isCorrect 
-                    ? 'bg-green-50 border-green-200 text-green-800' 
-                    : 'bg-red-50 border-red-200 text-red-800'
-                }`}>
+                <div
+                  className={`mt-4 p-4 rounded-lg border ${
+                    isCorrect
+                      ? "bg-green-50 border-green-200 text-green-800"
+                      : "bg-red-50 border-red-200 text-red-800"
+                  }`}
+                >
                   <h3 className="font-medium mb-2">
-                    {isCorrect ? '✅ Correct!' : '❌ Incorrect'}
+                    {isCorrect ? "✅ Correct!" : "❌ Incorrect"}
                   </h3>
                   <div>
-                    {isCorrect 
+                    {isCorrect
                       ? correctFeedbackBlocks.map((block) => (
-                          <div key={block.id} dangerouslySetInnerHTML={{ 
-                            __html: block.content.replace(/<br\s*\/?>/gi, '<br/>') 
-                          }} />
+                          <div
+                            key={block.id}
+                            dangerouslySetInnerHTML={{
+                              __html: block.content.replace(
+                                /<br\s*\/?>/gi,
+                                "<br/>"
+                              ),
+                            }}
+                          />
                         ))
                       : incorrectFeedbackBlocks.map((block) => (
-                          <div key={block.id} dangerouslySetInnerHTML={{ 
-                            __html: block.content.replace(/<br\s*\/?>/gi, '<br/>') 
-                          }} />
-                        ))
-                    }
+                          <div
+                            key={block.id}
+                            dangerouslySetInnerHTML={{
+                              __html: block.content.replace(
+                                /<br\s*\/?>/gi,
+                                "<br/>"
+                              ),
+                            }}
+                          />
+                        ))}
                   </div>
                 </div>
               )}
@@ -1009,17 +1113,24 @@ const QuestionPreview = memo(
               {/* Configuration Summary */}
               {textEntryBoxes.length > 0 && (
                 <div className="mt-6 p-4 bg-gray-50 rounded">
-                  <h3 className="font-medium mb-3">📋 Configuration Summary:</h3>
+                  <h3 className="font-medium mb-3">
+                    📋 Configuration Summary:
+                  </h3>
                   <div className="grid gap-3">
                     {textEntryBoxes.map((box, index) => (
-                      <div key={box.id} className="text-sm bg-white p-3 rounded border">
-                        <div className="font-medium text-blue-700">Text Box {index + 1}:</div>
+                      <div
+                        key={box.id}
+                        className="text-sm bg-white p-3 rounded border"
+                      >
+                        <div className="font-medium text-blue-700">
+                          Text Box {index + 1}:
+                        </div>
                         <div className="grid grid-cols-2 gap-2 mt-1 text-gray-600">
                           <div>Length: {box.expectedLength || "Not set"}</div>
                           <div>Pattern: {box.patternMask || "None"}</div>
                           <div>Width: {box.widthClass || "Default"}</div>
                           <div className="col-span-2">
-                            Correct Answer: 
+                            Correct Answer:
                             <span className="font-mono bg-gray-100 px-2 py-1 rounded ml-2 text-green-700">
                               {correctAnswers[index] || "[not set]"}
                             </span>
@@ -1320,18 +1431,23 @@ function parseTextEntryXML(xmlString: string): TextEntryQuestion {
       throw new Error("No qti-assessment-item found");
     }
 
-    const identifier = assessmentItem.getAttribute("identifier") || `text-entry-${Date.now()}`;
-    const title = assessmentItem.getAttribute("title") || "Imported Text Entry Question";
+    const identifier =
+      assessmentItem.getAttribute("identifier") || `text-entry-${Date.now()}`;
+    const title =
+      assessmentItem.getAttribute("title") || "Imported Text Entry Question";
 
     // Parse response declarations
-    const responseDeclarations = xmlDoc.querySelectorAll("qti-response-declaration");
+    const responseDeclarations = xmlDoc.querySelectorAll(
+      "qti-response-declaration"
+    );
     const correctAnswers: string[] = [];
     const textEntryBoxes: TextEntryBox[] = [];
 
     responseDeclarations.forEach((decl, index) => {
-      const responseId = decl.getAttribute("identifier") || `RESPONSE${index + 1}`;
+      const responseId =
+        decl.getAttribute("identifier") || `RESPONSE${index + 1}`;
       const correctValue = decl.querySelector("qti-correct-response qti-value");
-      
+
       correctAnswers.push(correctValue?.textContent || "");
       textEntryBoxes.push({
         id: `box${index + 1}`,
@@ -1354,25 +1470,29 @@ function parseTextEntryXML(xmlString: string): TextEntryQuestion {
           return node.textContent || "";
         } else if (node.nodeType === Node.ELEMENT_NODE) {
           const element = node as Element;
-          
+
           if (element.tagName === "qti-text-entry-interaction") {
             textEntryIndex++;
             const responseId = element.getAttribute("response-identifier");
             const expectedLength = element.getAttribute("expected-length");
             const patternMask = element.getAttribute("pattern-mask");
             const className = element.getAttribute("class");
-            
+
             // Update corresponding text entry box
-            const boxIndex = textEntryBoxes.findIndex(box => box.responseId === responseId);
+            const boxIndex = textEntryBoxes.findIndex(
+              (box) => box.responseId === responseId
+            );
             if (boxIndex >= 0) {
               textEntryBoxes[boxIndex] = {
                 ...textEntryBoxes[boxIndex],
-                expectedLength: expectedLength ? parseInt(expectedLength) : undefined,
+                expectedLength: expectedLength
+                  ? parseInt(expectedLength)
+                  : undefined,
                 patternMask: patternMask || undefined,
                 widthClass: className || "qti-input-width-5",
               };
             }
-            
+
             return `[${textEntryIndex}]`;
           } else if (element.tagName === "qti-modal-feedback") {
             // Skip feedback elements as they're processed separately
@@ -1383,17 +1503,21 @@ function parseTextEntryXML(xmlString: string): TextEntryQuestion {
           } else {
             // For other elements, recreate the HTML
             const attributes = Array.from(element.attributes)
-              .map(attr => `${attr.name}="${attr.value}"`)
+              .map((attr) => `${attr.name}="${attr.value}"`)
               .join(" ");
-            const innerHTML = Array.from(element.childNodes).map(processNode).join("");
-            return `<${element.tagName}${attributes ? " " + attributes : ""}>${innerHTML}</${element.tagName}>`;
+            const innerHTML = Array.from(element.childNodes)
+              .map(processNode)
+              .join("");
+            return `<${element.tagName}${
+              attributes ? " " + attributes : ""
+            }>${innerHTML}</${element.tagName}>`;
           }
         }
         return "";
       };
 
       // Process all child nodes of item-body, excluding feedback
-      const childNodes = Array.from(itemBody.childNodes).filter(node => {
+      const childNodes = Array.from(itemBody.childNodes).filter((node) => {
         if (node.nodeType === Node.ELEMENT_NODE) {
           const element = node as Element;
           return element.tagName !== "qti-modal-feedback";
@@ -1405,15 +1529,21 @@ function parseTextEntryXML(xmlString: string): TextEntryQuestion {
     }
 
     // Parse feedback blocks
-    const correctFeedback = xmlDoc.querySelector('qti-modal-feedback[identifier="CORRECT"]');
-    const incorrectFeedback = xmlDoc.querySelector('qti-modal-feedback[identifier="INCORRECT"]');
+    const correctFeedback = xmlDoc.querySelector(
+      'qti-modal-feedback[identifier="CORRECT"]'
+    );
+    const incorrectFeedback = xmlDoc.querySelector(
+      'qti-modal-feedback[identifier="INCORRECT"]'
+    );
 
     const correctFeedbackBlocks: ContentBlock[] = [];
     const incorrectFeedbackBlocks: ContentBlock[] = [];
 
     if (correctFeedback) {
-      const feedbackContent = correctFeedback.querySelector("qti-content-body")?.innerHTML || 
-                             correctFeedback.textContent || "";
+      const feedbackContent =
+        correctFeedback.querySelector("qti-content-body")?.innerHTML ||
+        correctFeedback.textContent ||
+        "";
       correctFeedbackBlocks.push({
         id: "correct_feedback_block",
         type: "text",
@@ -1431,8 +1561,10 @@ function parseTextEntryXML(xmlString: string): TextEntryQuestion {
     }
 
     if (incorrectFeedback) {
-      const feedbackContent = incorrectFeedback.querySelector("qti-content-body")?.innerHTML || 
-                             incorrectFeedback.textContent || "";
+      const feedbackContent =
+        incorrectFeedback.querySelector("qti-content-body")?.innerHTML ||
+        incorrectFeedback.textContent ||
+        "";
       incorrectFeedbackBlocks.push({
         id: "incorrect_feedback_block",
         type: "text",
@@ -1480,10 +1612,13 @@ function parseTextEntryXML(xmlString: string): TextEntryQuestion {
       correctFeedbackBlocks,
       incorrectFeedbackBlocks,
     };
-
   } catch (error) {
     console.error("Error parsing XML:", error);
-    throw new Error(`Failed to parse XML: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Failed to parse XML: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
   }
 }
 
@@ -1493,7 +1628,13 @@ export default function TextEntryBuilderPage() {
   const [xmlInput, setXmlInput] = useState("");
   const [parseError, setParseError] = useState("");
   const [showXmlImport, setShowXmlImport] = useState(false);
-  const [activeTab, setActiveTab] = useState<'question'|'feedbacks'|'textentry'|'preview'>('question');
+  const [activeTab, setActiveTab] = useState<
+    "question" | "feedbacks" | "textentry" | "preview"
+  >("question");
+
+  // XML Generation Hook
+  const { xmlContent, isGenerating, generateXML, clearXML } =
+    useXMLGeneration();
 
   const [question, setQuestion] = useState<TextEntryQuestion>({
     identifier: "text-entry-question-1",
@@ -1568,7 +1709,9 @@ export default function TextEntryBuilderPage() {
       setShowXmlImport(false);
       setXmlInput("");
     } catch (error) {
-      setParseError(error instanceof Error ? error.message : "Unknown parsing error");
+      setParseError(
+        error instanceof Error ? error.message : "Unknown parsing error"
+      );
     }
   }, [xmlInput]);
 
@@ -1665,6 +1808,20 @@ export default function TextEntryBuilderPage() {
     setGeneratedXML(xml);
   }, [xml]);
 
+  // Auto-generate XML for preview when question changes
+  const handleGenerateXMLForPreview = useCallback(async () => {
+    if (!xml) return;
+
+    try {
+      await generateXML({
+        type: "text-entry",
+        data: question,
+      });
+    } catch (error) {
+      console.error("Failed to generate XML for preview:", error);
+    }
+  }, [xml, question, generateXML]);
+
   useEffect(() => {
     const style = document.createElement("style");
     style.textContent = `
@@ -1695,27 +1852,49 @@ export default function TextEntryBuilderPage() {
         <div className="w-56 flex-shrink-0 pr-6">
           <div className="flex flex-col gap-2">
             <button
-              className={`text-left px-4 py-2 rounded font-medium transition-colors ${activeTab === 'question' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
-              onClick={() => setActiveTab('question')}
+              className={`text-left px-4 py-2 rounded font-medium transition-colors ${
+                activeTab === "question"
+                  ? "bg-blue-100 text-blue-700"
+                  : "hover:bg-gray-100"
+              }`}
+              onClick={() => setActiveTab("question")}
             >
               Question
             </button>
-             <button
-              className={`text-left px-4 py-2 rounded font-medium transition-colors ${activeTab === 'textentry' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
-              onClick={() => setActiveTab('textentry')}
+            <button
+              className={`text-left px-4 py-2 rounded font-medium transition-colors ${
+                activeTab === "textentry"
+                  ? "bg-blue-100 text-blue-700"
+                  : "hover:bg-gray-100"
+              }`}
+              onClick={() => setActiveTab("textentry")}
             >
               Text Entry
             </button>
             <button
-              className={`text-left px-4 py-2 rounded font-medium transition-colors ${activeTab === 'feedbacks' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
-              onClick={() => setActiveTab('feedbacks')}
+              className={`text-left px-4 py-2 rounded font-medium transition-colors ${
+                activeTab === "feedbacks"
+                  ? "bg-blue-100 text-blue-700"
+                  : "hover:bg-gray-100"
+              }`}
+              onClick={() => setActiveTab("feedbacks")}
             >
               Feedbacks
             </button>
-           
+
             <button
-              className={`text-left px-4 py-2 rounded font-medium transition-colors ${activeTab === 'preview' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
-              onClick={() => setActiveTab('preview')}
+              className={`text-left px-4 py-2 rounded font-medium transition-colors ${
+                activeTab === "preview"
+                  ? "bg-blue-100 text-blue-700"
+                  : "hover:bg-gray-100"
+              }`}
+              onClick={() => {
+                setActiveTab("preview");
+                // Auto-generate XML when preview tab is accessed
+                if (xml && !xmlContent) {
+                  handleGenerateXMLForPreview();
+                }
+              }}
             >
               Preview
             </button>
@@ -1762,14 +1941,99 @@ export default function TextEntryBuilderPage() {
                     </div>
                   )}
                   <div className="flex gap-2">
-                    <Button onClick={handleParseXML} disabled={!xmlInput.trim()}>
+                    <Button
+                      onClick={handleParseXML}
+                      disabled={!xmlInput.trim()}
+                    >
                       Parse & Load XML
                     </Button>
                     <Button variant="outline" onClick={handleClearXMLInput}>
                       Clear
                     </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setQuestion({
+                          identifier: "text-entry-demo",
+                          title: "Math Problem - Fill in the Blanks",
+                          promptBlocks: [
+                            {
+                              id: "prompt_block_1",
+                              type: "text",
+                              content:
+                                "Complete this math equation:<br/><strong>[1] + [2] = 10</strong><br/>What two numbers add up to 10?",
+                              styles: {
+                                fontSize: "18px",
+                                fontFamily: "Arial, sans-serif",
+                                color: "#2c3e50",
+                                backgroundColor: "#f8f9fa",
+                                padding: "16px",
+                                margin: "8px",
+                                borderRadius: "8px",
+                                border: "1px solid #e9ecef",
+                                textAlign: "left",
+                              },
+                              attributes: {},
+                            },
+                          ],
+                          textEntryBoxes: [
+                            {
+                              id: "box1",
+                              responseId: "RESPONSE1",
+                              expectedLength: 2,
+                              widthClass: "qti-input-width-3",
+                            },
+                            {
+                              id: "box2",
+                              responseId: "RESPONSE2",
+                              expectedLength: 2,
+                              widthClass: "qti-input-width-3",
+                            },
+                          ],
+                          correctAnswers: ["3", "7"],
+                          caseSensitive: false,
+                          correctFeedbackBlocks: [
+                            {
+                              id: "correct_feedback_block",
+                              type: "text",
+                              content:
+                                "Excellent! You got it right. 3 + 7 = 10",
+                              styles: {
+                                fontSize: "16px",
+                                color: "#27ae60",
+                                backgroundColor: "#d5f5e6",
+                                padding: "16px",
+                                borderRadius: "8px",
+                                textAlign: "center",
+                              },
+                              attributes: {},
+                            },
+                          ],
+                          incorrectFeedbackBlocks: [
+                            {
+                              id: "incorrect_feedback_block",
+                              type: "text",
+                              content:
+                                "Not quite right. Try again! Remember, the two numbers should add up to 10.",
+                              styles: {
+                                fontSize: "16px",
+                                color: "#e74c3c",
+                                backgroundColor: "#fdf2f2",
+                                padding: "16px",
+                                borderRadius: "8px",
+                                textAlign: "center",
+                              },
+                              attributes: {},
+                            },
+                          ],
+                        });
+                      }}
+                    >
+                      Load Sample
+                    </Button>
                     <div className="text-sm text-gray-500 flex items-center ml-auto">
-                      💡 This will replace your current question with the imported one
+                      💡 This will replace your current question with the
+                      imported one
                     </div>
                   </div>
                 </CardContent>
@@ -1778,7 +2042,7 @@ export default function TextEntryBuilderPage() {
           </div>
 
           {/* Main content by tab */}
-          {activeTab === 'question' && (
+          {activeTab === "question" && (
             <div className="space-y-6">
               <Card>
                 <CardHeader>
@@ -1846,7 +2110,7 @@ export default function TextEntryBuilderPage() {
               />
             </div>
           )}
-          {activeTab === 'feedbacks' && (
+          {activeTab === "feedbacks" && (
             <div className="space-y-6">
               <ContentBlockEditor
                 blocks={question.correctFeedbackBlocks}
@@ -1866,14 +2130,27 @@ export default function TextEntryBuilderPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {question.correctFeedbackBlocks.length > 0 && question.correctFeedbackBlocks[0].content ? (
+                  {question.correctFeedbackBlocks.length > 0 &&
+                  question.correctFeedbackBlocks[0].content ? (
                     question.correctFeedbackBlocks.map((block) => (
-                      <div key={block.id} className="mb-2 p-2 bg-green-50 rounded border border-green-100">
-                        <span dangerouslySetInnerHTML={{ __html: block.content.replace(/<br\s*\/?>/gi, '<br/>') }} />
+                      <div
+                        key={block.id}
+                        className="mb-2 p-2 bg-green-50 rounded border border-green-100"
+                      >
+                        <span
+                          dangerouslySetInnerHTML={{
+                            __html: block.content.replace(
+                              /<br\s*\/?>/gi,
+                              "<br/>"
+                            ),
+                          }}
+                        />
                       </div>
                     ))
                   ) : (
-                    <span className="text-gray-400">No correct feedback content.</span>
+                    <span className="text-gray-400">
+                      No correct feedback content.
+                    </span>
                   )}
                 </CardContent>
               </Card>
@@ -1895,20 +2172,33 @@ export default function TextEntryBuilderPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {question.incorrectFeedbackBlocks.length > 0 && question.incorrectFeedbackBlocks[0].content ? (
+                  {question.incorrectFeedbackBlocks.length > 0 &&
+                  question.incorrectFeedbackBlocks[0].content ? (
                     question.incorrectFeedbackBlocks.map((block) => (
-                      <div key={block.id} className="mb-2 p-2 bg-red-50 rounded border border-red-100">
-                        <span dangerouslySetInnerHTML={{ __html: block.content.replace(/<br\s*\/?>/gi, '<br/>') }} />
+                      <div
+                        key={block.id}
+                        className="mb-2 p-2 bg-red-50 rounded border border-red-100"
+                      >
+                        <span
+                          dangerouslySetInnerHTML={{
+                            __html: block.content.replace(
+                              /<br\s*\/?>/gi,
+                              "<br/>"
+                            ),
+                          }}
+                        />
                       </div>
                     ))
                   ) : (
-                    <span className="text-gray-400">No incorrect feedback content.</span>
+                    <span className="text-gray-400">
+                      No incorrect feedback content.
+                    </span>
                   )}
                 </CardContent>
               </Card>
             </div>
           )}
-          {activeTab === 'textentry' && (
+          {activeTab === "textentry" && (
             <div className="space-y-6">
               <TextBoxConfiguration
                 textEntryBoxes={question.textEntryBoxes}
@@ -1919,8 +2209,11 @@ export default function TextEntryBuilderPage() {
               />
             </div>
           )}
-          {activeTab === 'preview' && (
+          {activeTab === "preview" && (
             <div className="space-y-6">
+              {/* QTI Renderer Preview */}
+
+              {/* Interactive Preview */}
               <QuestionPreview
                 promptBlocks={question.promptBlocks}
                 textEntryBoxes={question.textEntryBoxes}
@@ -1929,58 +2222,67 @@ export default function TextEntryBuilderPage() {
                 incorrectFeedbackBlocks={question.incorrectFeedbackBlocks}
                 onAnswerChange={updateAnswer}
               />
-              
+
+              {/* Auto-generate XML button */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>XML Generation</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleGenerateXMLForPreview}
+                      disabled={isGenerating || !xml}
+                    >
+                      {isGenerating
+                        ? "Generating..."
+                        : "Generate XML for Preview"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => navigator.clipboard.writeText(xml)}
+                      disabled={!xml}
+                    >
+                      Copy XML
+                    </Button>
+                  </div>
+                  {xml && (
+                    <details className="mt-4">
+                      <summary className="cursor-pointer font-medium mb-2">
+                        Show Generated XML
+                      </summary>
+                      <pre className="text-xs p-4 bg-gray-800 text-gray-100 rounded overflow-auto max-h-[300px]">
+                        {xml}
+                      </pre>
+                    </details>
+                  )}
+                </CardContent>
+              </Card>
+
               {/* Feedback Previews */}
               <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
-                {/* Correct Feedback Preview */}
-                {/* <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-green-700">
-                      <Eye className="w-4 h-4" /> 
-                      Correct Feedback Preview
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {question.correctFeedbackBlocks.length > 0 && question.correctFeedbackBlocks[0].content ? (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                        {question.correctFeedbackBlocks.map((block) => (
-                          <div 
-                            key={block.id} 
-                            className="text-green-800"
-                            dangerouslySetInnerHTML={{ 
-                              __html: block.content.replace(/<br\s*\/?>/gi, '<br/>') 
-                            }} 
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-gray-400 text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
-                        <div className="text-lg mb-2">📝</div>
-                        <p>No correct feedback content added yet.</p>
-                        <p className="text-sm mt-1">Add content in the Feedbacks tab to see preview here.</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card> */}
-
                 {/* Incorrect Feedback Preview */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-red-700">
-                      <Eye className="w-4 h-4" /> 
+                      <Eye className="w-4 h-4" />
                       Incorrect Feedback Preview
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {question.incorrectFeedbackBlocks.length > 0 && question.incorrectFeedbackBlocks[0].content ? (
+                    {question.incorrectFeedbackBlocks.length > 0 &&
+                    question.incorrectFeedbackBlocks[0].content ? (
                       <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                         {question.incorrectFeedbackBlocks.map((block) => (
-                          <div 
-                            key={block.id} 
+                          <div
+                            key={block.id}
                             className="text-red-800"
-                            dangerouslySetInnerHTML={{ 
-                              __html: block.content.replace(/<br\s*\/?>/gi, '<br/>') 
-                            }} 
+                            dangerouslySetInnerHTML={{
+                              __html: block.content.replace(
+                                /<br\s*\/?>/gi,
+                                "<br/>"
+                              ),
+                            }}
                           />
                         ))}
                       </div>
@@ -1988,34 +2290,19 @@ export default function TextEntryBuilderPage() {
                       <div className="text-gray-400 text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
                         <div className="text-lg mb-2">📝</div>
                         <p>No incorrect feedback content added yet.</p>
-                        <p className="text-sm mt-1">Add content in the Feedbacks tab to see preview here.</p>
+                        <p className="text-sm mt-1">
+                          Add content in the Feedbacks tab to see preview here.
+                        </p>
                       </div>
                     )}
                   </CardContent>
                 </Card>
               </div>
-
-              {generatedXML && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>QTI XML Output</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <pre className="text-xs p-4 bg-gray-800 text-gray-100 rounded overflow-auto max-h-[500px]">
-                      {generatedXML}
-                    </pre>
-                    <Button
-                      variant="outline"
-                      className="mt-4"
-                      onClick={() => {
-                        navigator.clipboard.writeText(generatedXML);
-                      }}
-                    >
-                      Copy XML
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
+              <PreviewRenderer
+                xmlContent={xmlContent || xml}
+                questionType="Text Entry"
+                disabled={!xml}
+              />
             </div>
           )}
         </div>

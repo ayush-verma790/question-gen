@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <title>Vaidik • QTI Item Editor & Player</title>
+  <style>
+    :root{
+      --brand:#0ea5e9;  /* sky-500 */
+      --brand2:#14b8a6; /* teal-500 */
+      --ink:#0f172a;    /* slate-900 */
+      --muted:#64748b;  /* slate-500 */
+      --ring:#e5e7eb;
+      --ok:#0a7b34;
+      --bad:#b42318;
+      --card:#ffffff;
+    }
+    *{box-sizing:border-box}
+    html,body{
+      margin:0;
+      background:linear-gradient(180deg, #fafdff 0%, #f6fbff 40%, #f9fbfa 100%);
+      color:var(--ink);
+      font:14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    a{color:var(--brand);text-decoration:none}
+
+    .container{max-width:1100px;margin:0 auto;padding:16px}
+    .header{
+      position:sticky; top:0; z-index:10;
+      background:linear-gradient(90deg, var(--brand) 0%, var(--brand2) 100%);
+      color:#fff; padding:10px 0; box-shadow:0 2px 10px rgba(0,0,0,.08);
+    }
+    .header .row{display:flex;align-items:center;gap:12px;padding:0 16px}
+    .logo{height:34px;width:auto;border-radius:4px;background:#fff;padding:2px}
+    .title{font-weight:700;letter-spacing:.3px}
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--ring);
+      border-radius:14px;
+      box-shadow:0 2px 16px rgba(2,132,199,.06);
+    }
+    .editor{margin-top:16px;padding:14px}
+    .editor .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+    .toolbar button{padding:8px 12px;border:1px solid var(--ring);border-radius:10px;background:#fff;cursor:pointer}
+    .toolbar button.primary{background:var(--brand);color:#fff;border-color:transparent}
+    .toolbar .muted{color:var(--muted);font-size:12px;margin-left:auto}
+    textarea{
+      width:100%;
+      height:140px;           /* small by default */
+      resize:vertical;        /* user can drag to enlarge */
+      padding:12px;border:1px solid var(--ring);border-radius:12px;
+      background:#fff;font:12px/1.5 ui-monospace, Menlo, Consolas, "Liberation Mono", monospace;
+    }
+
+    .player{margin-top:14px;padding:16px}
+    .player h3{margin:0 0 12px;font-size:18px}
+    .pill{
+      display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;
+      border:1px solid var(--ring);font-size:12px;background:#fff
+    }
+
+    .stem, .feedback, .hottext, .order-list, .choices, .note { white-space:normal; }
+    .stem img, .feedback img, .choices img, .order-row img{max-width:100%;height:auto}
+
+    /* choice layout + orientation */
+    .choices{display:flex;gap:12px;margin-top:8px;flex-wrap:wrap}
+    .choices.horizontal{flex-direction:row}
+    .choices.vertical{flex-direction:column}
+    label.choice{
+      display:flex;gap:10px;align-items:flex-start;
+      border:1px solid var(--ring);border-radius:12px;padding:10px 12px;
+      cursor:pointer;background:#fff;transition:box-shadow .18s ease, transform .06s ease;
+    }
+    label.choice:hover{box-shadow:0 4px 20px rgba(2,132,199,.08);transform:translateY(-1px)}
+    label.choice input{margin-top:4px}
+    label.choice img{max-width:140px;display:block;border-radius:8px}
+
+    .hottext span{padding:2px 4px;border-radius:6px;cursor:pointer;transition:background .15s}
+    .hottext span:hover{background:#eef7ff}
+    .hottext span.active{background:#e0f2fe;outline:2px solid #bae6fd}
+
+    /* text-entry auto-size inputs */
+    .tei-input{
+      display:inline-block;
+      vertical-align:baseline;
+      min-width:2.4ch;
+      text-align:center;
+      padding:6px 6px;
+      border:1px solid var(--ring);
+      border-radius:8px;
+      background:#fff;
+      outline:none;
+      font:14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      transition:width .12s ease;
+    }
+
+    .order-list{margin-top:8px;border:1px dashed #dbeafe;border-radius:10px;padding:6px;background:#f8fbff}
+    .order-row{display:flex;align-items:center;gap:8px;border:1px solid var(--ring);border-radius:10px;padding:8px;margin:6px 0;background:#fff}
+    .order-row .lbl{flex:1}
+    .order-row button{padding:6px 10px;border:1px solid var(--ring);background:#fff;border-radius:8px;cursor:pointer}
+
+    /* HOTSPOT */
+    .hotspot{position:relative;display:inline-block;max-width:100%}
+    .hotspot img{display:block;max-width:100%;height:auto;border-radius:10px;border:1px solid var(--ring)}
+    .hotspot svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+    .hotspot .area{pointer-events:auto;cursor:pointer;fill:rgba(14,165,233,.18);stroke:var(--brand);stroke-width:2}
+    .hotspot .area:hover{fill:rgba(14,165,233,.28)}
+    .hotspot .area.selected{fill:rgba(20,184,166,.26);stroke:var(--brand2)}
+
+    .footer{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:14px}
+    .footer .left{display:flex;gap:8px}
+    .btn{padding:10px 14px;border:1px solid var(--ring);border-radius:10px;background:#fff;cursor:pointer}
+    .btn.primary{background:var(--brand);color:#fff;border-color:transparent}
+    .btn.ghost{background:#fff}
+    .result.ok{color:var(--ok)} .result.bad{color:var(--bad)} .muted{color:var(--muted)}
+    .msg{margin-top:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--ring);background:#f9fbff;display:none}
+    /* === GAP-MATCH (drag tokens into blanks) === */
+    .gm { margin-top: 10px; }
+    .gm-bank{
+      display:flex; flex-wrap:wrap; gap:8px;
+      border:1px dashed #dbeafe; background:#f8fbff;
+      padding:8px; border-radius:10px
+    }
+    .gm-token{
+      display:inline-block; padding:6px 10px;
+      border:1px solid var(--ring); border-radius:10px;
+      background:#fff; cursor:grab; user-select:none
+    }
+    .gm-token:active{ cursor:grabbing }
+    .gap{
+      display:inline-block; min-width:6ch; min-height:1.9em; vertical-align:baseline;
+      padding:2px 6px; margin:0 2px;
+      border-bottom:2px dotted #93c5fd; border-radius:6px; background:#f0f9ff
+    }
+    .gap.over{ outline:2px dashed var(--brand) }
+
+    /* === GRAPHIC GAP-MATCH (tokens → hotspots on image) === */
+    .ggm { margin-top: 10px; }
+    .ggm .svgwrap{ position:relative; display:inline-block; max-width:100% }
+    .ggm img{ display:block; max-width:100%; height:auto; border-radius:10px; border:1px solid var(--ring) }
+    .ggm svg{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none }
+    .ggm .drop{ pointer-events:auto; cursor:pointer; fill:rgba(14,165,233,.12); stroke:var(--brand); stroke-width:2 }
+    .ggm .drop.over{ fill:rgba(14,165,233,.22) }
+    .ggm .label{
+      position:absolute; transform:translate(-50%,-100%); white-space:nowrap;
+      padding:2px 6px; border-radius:8px; background:#fff; border:1px solid var(--ring);
+      box-shadow:0 2px 8px rgba(2,132,199,.08); pointer-events:none; font-size:12px
+    }
+    .ggm-bank{ margin-top:8px }
+
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="row container">
+      <img class="logo" src="https://vaidikedu.com/wp-content/uploads/2024/10/edu-logo.png" alt="Vaidik">
+      <div class="title">QTI Item Editor & Player</div>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Editor (top, compact) -->
+    <div class="card editor">
+      <textarea id="xml" placeholder="Paste your QTI 3.0 item XML here…"></textarea>
+      <div class="toolbar">
+        <button class="primary" id="renderBtn">Render ▶</button>
+        <!-- <button id="sampleChoice">Sample: Choice</button>
+        <button id="sampleText">Sample: Text Entry</button>
+        <button id="sampleHottext">Sample: Hottext</button>
+        <button id="sampleOrder">Sample: Order</button>
+        <button id="sampleHotspot">Sample: Hotspot</button> -->
+        <span class="muted" id="parseStatus"></span>
+      </div>
+    </div>
+
+    <!-- Player (bottom, large) -->
+    <div class="card player" id="player">
+      <div class="muted">Paste XML above and click <strong>Render</strong>.</div>
+    </div>
+  </div>
+
+  <script>
+    const xmlTA = document.getElementById('xml');
+    const player = document.getElementById('player');
+    const parseStatus = document.getElementById('parseStatus');
+
+    // --------- Parser ----------
+    // --------- Parser (QTI 3.0 ONLY) ----------
+function parseQti(xmlString){
+  if(!xmlString) return { error: 'Empty XML' };
+
+  const doc = new DOMParser().parseFromString(xmlString, 'text/xml');
+  if (doc.querySelector('parsererror')) return { error: 'Invalid XML' };
+
+  // QTI 3.0 validation
+  const NS_QTI3 = 'http://www.imsglobal.org/xsd/imsqtiasi_v3p0';
+  const root = doc.documentElement;
+  const xmlns = root.getAttribute('xmlns') || '';
+  const schemaLoc = root.getAttribute('xsi:schemaLocation') || '';
+
+  if (xmlns !== NS_QTI3) {
+    return {
+      error: `This tool only renders QTI 3.0 items. Found xmlns="${xmlns || '(none)'}". Expected "${NS_QTI3}".`
+    };
+  }
+  // Optional: require v3 marker in schemaLocation if present
+  if (schemaLoc && !/imsqtiasi_v3p0/i.test(schemaLoc)) {
+    return {
+      error: `Schema location is not QTI 3.0 (xsi:schemaLocation="${schemaLoc}").`
+    };
+  }
+
+  // From here on, parse ONLY QTI 3.0 element names
+  const body = doc.querySelector('qti-item-body');
+  if (!body) return { error: 'Missing <qti-item-body> (QTI 3.0).' };
+
+  // Correct responses (flat list for choice/hottext/order)
+  const cr = doc.querySelector('qti-correct-response');
+  const correctIds = cr ? [...cr.querySelectorAll('qti-value')].map(v => (v.textContent||'').trim()) : [];
+
+  // Feedback (modal + block)
+  const feedback = { correct:'', incorrect:'' };
+  [...doc.querySelectorAll('qti-modal-feedback')].forEach(f=>{
+    const id = (f.getAttribute('identifier')||'').toUpperCase();
+    const html = f.innerHTML.trim();
+    if(id==='CORRECT') feedback.correct = html;
+    if(id==='INCORRECT') feedback.incorrect = html;
+  });
+  [...doc.querySelectorAll('qti-feedback-block')].forEach(f=>{
+    const id = (f.getAttribute('identifier')||'').toUpperCase();
+    const html = (f.querySelector('qti-content-body')||f).innerHTML.trim();
+    if(id==='CORRECT' && !feedback.correct) feedback.correct = html;
+    if(id==='INCORRECT' && !feedback.incorrect) feedback.incorrect = html;
+  });
+
+  // Build stem (remove interactions + feedback)
+  const stemClone = body.cloneNode(true);
+  stemClone.querySelectorAll(
+    'qti-choice-interaction, qti-hottext-interaction, qti-text-entry-interaction, qti-order-interaction, qti-hotspot-interaction, qti-feedback-block, qti-modal-feedback'
+  ).forEach(n=>n.remove());
+  const stemHTML = stemClone.innerHTML;
+
+  const textOf = el => el ? el.textContent.trim() : '';
+
+  // Choice?
+  const ci = doc.querySelector('qti-choice-interaction');
+  if (ci) {
+    const multi = (ci.getAttribute('max-choices') || '') === '0' || correctIds.length > 1;
+    const orientation = (ci.getAttribute('orientation') || 'horizontal').toLowerCase();
+    const choices = [...doc.querySelectorAll('qti-simple-choice')].map(sc => ({
+      identifier: sc.getAttribute('identifier'),
+      text: textOf(sc),
+      html: sc.innerHTML.trim()
+    }));
+    return { type:'choice', stemHTML, choices, correctIds, maxChoices: multi ? 0 : 1, feedback, orientation };
+  }
+
+    // Hottext (QTI 3.0)
+    const hi = doc.querySelector('qti-hottext-interaction');
+    if (hi) {
+      const container = document.createElement('div');
+      container.innerHTML = hi.innerHTML; // only the interaction content
+
+      // turn <qti-hottext> into clickable spans
+      container.querySelectorAll('qti-hottext').forEach(ht=>{
+        const id = ht.getAttribute('identifier') || '';
+        const span = document.createElement('span');
+        span.innerHTML = ht.innerHTML.trim();
+        span.dataset.id = id;
+        ht.replaceWith(span);
+        span.insertAdjacentText('afterend',' ');
+      });
+
+      // derive single vs multi from response-declaration and max-choices
+      const respId = hi.getAttribute('response-identifier') || 'RESPONSE';
+      const rd = doc.querySelector(`qti-response-declaration[identifier="${respId}"]`);
+      const card = rd?.getAttribute('cardinality')?.toLowerCase();
+      const maxChoicesAttr = hi.getAttribute('max-choices') || hi.getAttribute('maxChoices');
+      const singleSelect = (card === 'single') || (maxChoicesAttr === '1');
+
+      return {
+        type: 'hottext',
+        stemHTML,
+        hottextHTML: container.innerHTML,
+        correctIds,
+        feedback,
+        singleSelect
+      };
+    }
+
+
+  // Text Entry? (multiple inline)
+  const teNodes = doc.querySelectorAll('qti-text-entry-interaction');
+  if (teNodes.length) {
+    const container = body.cloneNode(true);
+    container.querySelectorAll(
+      'qti-choice-interaction, qti-hottext-interaction, qti-order-interaction, qti-hotspot-interaction, qti-feedback-block, qti-modal-feedback'
+    ).forEach(n => n.remove());
+
+    const entries = [];
+    container.querySelectorAll('qti-text-entry-interaction').forEach(node => {
+      const id  = node.getAttribute('response-identifier') || '';
+      const exp = parseInt(node.getAttribute('expected-length') || '4', 10);
+      const cls = node.getAttribute('class') || '';
+      const m = cls.match(/qti-input-width-(\d+)/i);
+      const widthFromClass = m ? parseInt(m[1], 10) : undefined;
+      entries.push({ id, expected: Number.isFinite(exp) ? exp : 4, className: cls, width: widthFromClass });
+
+      const ph = document.createElement('span');
+      ph.setAttribute('data-tei', id);
+      node.replaceWith(ph);
+    });
+
+    const correctById = {};
+    doc.querySelectorAll('qti-response-declaration').forEach(rd => {
+      const id = rd.getAttribute('identifier');
+      const vals = [...rd.querySelectorAll('qti-correct-response qti-value')].map(v => (v.textContent || '').trim());
+      if (id) correctById[id] = vals;
+    });
+
+    return { type:'textentry', stemHTML: container.innerHTML, entries, correctById, feedback };
+  }
+
+  // Hotspot?
+  const hsi = doc.querySelector('qti-hotspot-interaction');
+  if (hsi) {
+    // background image: <img> or <qti-object data="">
+    let imgSrc = '';
+    let imgW = undefined, imgH = undefined;
+    const imgEl = hsi.querySelector('img');
+    if (imgEl && imgEl.getAttribute('src')) {
+      imgSrc = imgEl.getAttribute('src');
+      imgW = parseInt(imgEl.getAttribute('width')||'') || undefined;
+      imgH = parseInt(imgEl.getAttribute('height')||'') || undefined;
+    } else {
+      const obj = hsi.querySelector('qti-object');
+      if (obj && obj.getAttribute('data')) {
+        imgSrc = obj.getAttribute('data');
+        imgW = parseInt(obj.getAttribute('width')||'') || undefined;
+        imgH = parseInt(obj.getAttribute('height')||'') || undefined;
+      }
+    }
+
+    const multi = (hsi.getAttribute('max-choices') || '') === '0' || correctIds.length > 1;
+
+    const choices = [...hsi.querySelectorAll('qti-hotspot-choice')].map(ch => ({
+      identifier: ch.getAttribute('identifier'),
+      shape: (ch.getAttribute('shape')||'').toLowerCase(),   // rect | circle | poly
+      coords: ((ch.getAttribute('coords')||'').trim().split(/[ ,]+/).map(n=>parseFloat(n))).filter(n=>!Number.isNaN(n))
+    }));
+
+    return {
+      type:'hotspot',
+      stemHTML,
+      image:{ src: imgSrc, width: imgW, height: imgH },
+      choices,
+      correctIds,
+      maxChoices: multi ? 0 : 1,
+      feedback
+    };
+  }
+
+  // Order?
+  const oi = doc.querySelector('qti-order-interaction');
+  if (oi) {
+    const shuffleAttr = (oi.getAttribute('shuffle') || '').toLowerCase() === 'true';
+    const items = [...doc.querySelectorAll('qti-simple-choice, qti-simple-associable-choice')].map(sc => ({
+      identifier: sc.getAttribute('identifier'),
+      html: sc.innerHTML.trim(),
+      text: sc.textContent.trim()
+    }));
+    return { type:'order', stemHTML, items, correctIds, feedback, shuffle: shuffleAttr };
+  }
+
+    // === GAP-MATCH (drag tokens → inline gaps) ===
+  const gmi = doc.querySelector('qti-gap-match-interaction');
+  if (gmi) {
+    // Clone body, remove other interactions & feedback, turn <qti-gap> into placeholders
+    const container = body.cloneNode(true);
+    container.querySelectorAll(
+      'qti-choice-interaction,qti-hottext-interaction,qti-text-entry-interaction,qti-order-interaction,qti-hotspot-interaction,qti-graphic-gap-match-interaction,qti-feedback-block,qti-modal-feedback'
+    ).forEach(n=>n.remove());
+
+    const gaps = [];
+    container.querySelectorAll('qti-gap').forEach(node=>{
+      const gid = node.getAttribute('identifier') || '';
+      const ph = document.createElement('span');
+      ph.setAttribute('data-gap', gid);
+      ph.className = 'gap';
+      node.replaceWith(ph);
+      if (gid) gaps.push(gid);
+    });
+
+    const tokens = [...gmi.querySelectorAll('qti-gap-text, qti-simple-associable-choice')].map(t => ({
+      id: t.getAttribute('identifier') || '',
+      html: t.innerHTML.trim(),
+      text: (t.textContent || '').trim()
+    }));
+
+    return {
+      type:'gapmatch',
+      stemHTML: container.innerHTML,
+      gaps, tokens,
+      correctIds, // array of "tokenId gapId" strings from <qti-correct-response>
+      feedback
+    };
+  }
+
+  // === GRAPHIC GAP-MATCH (drag tokens → hotspots on image) ===
+  const ggmi = doc.querySelector('qti-graphic-gap-match-interaction');
+  if (ggmi) {
+    // Image
+    let imgSrc='', imgW=undefined, imgH=undefined;
+    const obj = ggmi.querySelector('qti-object');
+    if (obj && obj.getAttribute('data')) {
+      imgSrc = obj.getAttribute('data');
+      imgW = parseInt(obj.getAttribute('width')||'') || undefined;
+      imgH = parseInt(obj.getAttribute('height')||'') || undefined;
+    } else {
+      const imgEl = ggmi.querySelector('img');
+      if (imgEl && imgEl.getAttribute('src')) {
+        imgSrc = imgEl.getAttribute('src');
+        imgW = parseInt(imgEl.getAttribute('width')||'') || undefined;
+        imgH = parseInt(imgEl.getAttribute('height')||'') || undefined;
+      }
+    }
+
+    // Targets (QTI 3.0: qti-associable-hotspot)
+    const hotspots = [...ggmi.querySelectorAll('qti-associable-hotspot, qti-hotspot-choice')].map(h => ({
+      id: h.getAttribute('identifier') || '',
+      shape: (h.getAttribute('shape')||'').toLowerCase(), // rect|circle|poly
+      coords: ((h.getAttribute('coords')||'').trim().split(/[ ,]+/).map(n=>parseFloat(n))).filter(n=>!Number.isNaN(n))
+    }));
+
+    // Tokens (same as gap-match)
+    const tokens = [...ggmi.querySelectorAll('qti-gap-text, qti-simple-associable-choice')].map(t => ({
+      id: t.getAttribute('identifier') || '',
+      html: t.innerHTML.trim(),
+      text: (t.textContent || '').trim()
+    }));
+
+    return {
+      type:'graphic-gap-match',
+      image:{ src: imgSrc, width: imgW, height: imgH },
+      hotspots, tokens,
+      stemHTML: '', // graphic items usually don’t need inline stem HTML beyond any <p> already in body
+      correctIds, // "tokenId hotspotId" pairs
+      feedback
+    };
+  }
+
+  return { error: 'No supported QTI 3.0 interaction found in this item.' };
+}
+
+
+    // --------- Renderer ----------
+    function render(xmlString){
+      player.innerHTML = '';
+      parseStatus.textContent = '';
+
+      const model = parseQti(xmlString);
+      if (model.error) {
+        parseStatus.textContent = 'Parse error: ' + model.error;
+        player.innerHTML = '<div class="muted">Could not render item.</div>';
+        return;
+      }
+
+      const h3 = document.createElement('h3');
+      h3.innerHTML = `Item <span class="pill">${model.type}</span>`;
+      player.appendChild(h3);
+
+      const stem = document.createElement('div');
+      stem.className = 'stem';
+      stem.innerHTML = model.stemHTML || '';
+      player.appendChild(stem);
+
+      const holder = document.createElement('div');
+      let getUserAnswer = () => [];
+      let doLocalReset = () => {};
+
+            // GAP-MATCH (drag tokens into inline gaps)
+      if (model.type === 'gapmatch') {
+        // Token bank
+        const root = document.createElement('div'); root.className = 'gm';
+        const bank = document.createElement('div'); bank.className = 'gm-bank';
+        (model.tokens || []).forEach(t=>{
+          const b = document.createElement('button');
+          b.type='button'; b.className='gm-token'; b.draggable=true;
+          b.dataset.id = t.id;
+          if (t.html) b.innerHTML = t.html; else b.textContent = t.text || t.id;
+          b.addEventListener('dragstart', ev=>{
+            ev.dataTransfer.setData('text/plain', t.id);
+            ev.dataTransfer.effectAllowed='move';
+          });
+          bank.appendChild(b);
+        });
+        root.appendChild(bank);
+        holder.appendChild(root);
+
+        // Wire gaps inside the STEM
+        const gapEls = [...stem.querySelectorAll('.gap[data-gap]')];
+        const tokenByGap = new Map(); // gapId -> tokenId
+        const gapByToken = new Map(); // tokenId -> gapId
+
+        const getTokenEl = id => holder.querySelector(`.gm-token[data-id="${CSS.escape(id)}"]`);
+
+        function dropIntoGap(gapEl, tokenId){
+          const gid = gapEl.getAttribute('data-gap');
+          const tokEl = getTokenEl(tokenId);
+          if (!gid || !tokEl) return;
+
+          // If token was elsewhere, clear previous spot
+          const prevGapForToken = gapByToken.get(tokenId);
+          if (prevGapForToken) {
+            const prevEl = stem.querySelector(`.gap[data-gap="${CSS.escape(prevGapForToken)}"]`);
+            if (prevEl) prevEl.textContent = ''; // remove prior node
+          }
+
+          // If gap had another token, send it back to bank
+          const prevTokenForGap = tokenByGap.get(gid);
+          if (prevTokenForGap && prevTokenForGap !== tokenId) {
+            const prevTokEl = getTokenEl(prevTokenForGap);
+            if (prevTokEl) bank.appendChild(prevTokEl);
+            gapByToken.delete(prevTokenForGap);
+          }
+
+          // Place token into gap
+          gapEl.innerHTML = '';
+          gapEl.appendChild(tokEl);
+          tokenByGap.set(gid, tokenId);
+          gapByToken.set(tokenId, gid);
+        }
+
+        // Make gaps droppable
+        gapEls.forEach(g=>{
+          g.addEventListener('dragover', ev=>{ ev.preventDefault(); g.classList.add('over'); });
+          g.addEventListener('dragleave', ()=> g.classList.remove('over'));
+          g.addEventListener('drop', ev=>{
+            ev.preventDefault();
+            g.classList.remove('over');
+            const tokenId = ev.dataTransfer.getData('text/plain');
+            if (tokenId) dropIntoGap(g, tokenId);
+          });
+        });
+
+        // Allow dropping back to bank
+        bank.addEventListener('dragover', ev=>{ ev.preventDefault(); });
+        bank.addEventListener('drop', ev=>{
+          ev.preventDefault();
+          const tokenId = ev.dataTransfer.getData('text/plain');
+          if (!tokenId) return;
+          const tokEl = getTokenEl(tokenId);
+          if (tokEl) bank.appendChild(tokEl);
+          const prevGap = gapByToken.get(tokenId);
+          if (prevGap){
+            const prevEl = stem.querySelector(`.gap[data-gap="${CSS.escape(prevGap)}"]`);
+            if (prevEl) prevEl.textContent='';
+          }
+          gapByToken.delete(tokenId);
+          if (prevGap) tokenByGap.delete(prevGap);
+        });
+
+        // Extract user answer as directed pairs: "tokenId gapId"
+        getUserAnswer = () => {
+          const pairs = [];
+          tokenByGap.forEach((tok, gid)=> { if (tok && gid) pairs.push(`${tok} ${gid}`); });
+          return pairs;
+        };
+
+        // Local reset
+        doLocalReset = ()=>{
+          gapEls.forEach(g=> g.textContent='');
+          // Move all tokens back
+          holder.querySelectorAll('.gm-token').forEach(el=> bank.appendChild(el));
+          tokenByGap.clear(); gapByToken.clear();
+        };
+      }
+
+            // GRAPHIC GAP-MATCH (drag tokens onto hotspots)
+      if (model.type === 'graphic-gap-match') {
+        const root = document.createElement('div'); root.className = 'ggm';
+
+        // Image + overlay
+        const wrap = document.createElement('div'); wrap.className = 'svgwrap';
+        const img  = document.createElement('img');
+        img.alt = 'Graphic gap-match';
+        img.src = model.image?.src || '';
+        if (model.image?.width)  img.width  = model.image.width;
+        if (model.image?.height) img.height = model.image.height;
+
+        const svg  = document.createElementNS('http://www.w3.org/2000/svg','svg');
+        const labelsLayer = document.createElement('div'); // HTML labels over image
+        labelsLayer.style.position='absolute';
+        labelsLayer.style.inset='0';
+
+        wrap.appendChild(img);
+        wrap.appendChild(svg);
+        wrap.appendChild(labelsLayer);
+        root.appendChild(wrap);
+
+        // Token bank
+        const bank = document.createElement('div'); bank.className='gm-bank ggm-bank';
+        (model.tokens||[]).forEach(t=>{
+          const b = document.createElement('button');
+          b.type='button'; b.className='gm-token'; b.draggable=true;
+          b.dataset.id = t.id;
+          if (t.html) b.innerHTML = t.html; else b.textContent = t.text || t.id;
+          b.addEventListener('dragstart', ev=>{
+            ev.dataTransfer.setData('text/plain', t.id);
+            ev.dataTransfer.effectAllowed='move';
+          });
+          bank.appendChild(b);
+        });
+        root.appendChild(bank);
+        holder.appendChild(root);
+
+        // Mapping token <-> hotspot
+        const tokenToHot = new Map(); // tokenId -> hotspotId
+        const hotToToken = new Map(); // hotspotId -> tokenId
+
+        // Helpers
+        const getTokenEl = id => holder.querySelector(`.gm-token[data-id="${CSS.escape(id)}"]`);
+
+        const centerOf = (shape, coords) => {
+          if (shape === 'rect' && coords.length>=4) {
+            const [x1,y1,x2,y2] = coords; return {x:(Math.min(x1,x2)+Math.abs(x2-x1)/2), y:(Math.min(y1,y2)+Math.abs(y2-y1)/2)};
+          }
+          if (shape === 'circle' && coords.length>=3) {
+            const [cx,cy] = coords; return {x:cx,y:cy};
+          }
+          // polygon centroid (simple average; good enough for labels)
+          let xs=0, ys=0, n=0;
+          for (let i=0;i<coords.length;i+=2){ xs+=coords[i]; ys+=coords[i+1]; n++; }
+          return {x: xs/Math.max(1,n), y: ys/Math.max(1,n)};
+        };
+
+        const view = {w:0,h:0}, scale = ()=> {
+          const w = img.naturalWidth || img.width || 800;
+          const h = img.naturalHeight || img.height || 600;
+          view.w = w; view.h = h;
+          svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+        };
+
+        function placeLabel(hId, text, cx, cy){
+          // remove old
+          labelsLayer.querySelectorAll(`[data-hot="${CSS.escape(hId)}"]`).forEach(n=>n.remove());
+          const el = document.createElement('div');
+          el.className='label'; el.dataset.hot = hId; el.textContent = text;
+          // Position using image DOM size
+          const rect = img.getBoundingClientRect();
+          const fx = rect.width  / view.w;
+          const fy = rect.height / view.h;
+          el.style.left = (cx*fx) + 'px';
+          el.style.top  = (cy*fy) + 'px';
+          labelsLayer.appendChild(el);
+        }
+
+        function assign(hId, tokenId, shape, coords){
+          // Clear previous for this token
+          const prevHot = tokenToHot.get(tokenId);
+          if (prevHot && prevHot !== hId) {
+            hotToToken.delete(prevHot);
+            labelsLayer.querySelectorAll(`[data-hot="${CSS.escape(prevHot)}"]`).forEach(n=>n.remove());
+            const prevShape = svg.querySelector(`[data-id="${CSS.escape(prevHot)}"]`);
+            if (prevShape) prevShape.classList.remove('over');
+          }
+          // If hotspot had another token, send it back
+          const prevTok = hotToToken.get(hId);
+          if (prevTok && prevTok !== tokenId) {
+            const tEl = getTokenEl(prevTok);
+            if (tEl) bank.appendChild(tEl);
+            tokenToHot.delete(prevTok);
+          }
+
+          tokenToHot.set(tokenId, hId);
+          hotToToken.set(hId, tokenId);
+
+          // Move token back to bank (visual token stays in bank; label shows assignment on image)
+          const tEl = getTokenEl(tokenId);
+          if (tEl && tEl.parentElement !== bank) bank.appendChild(tEl);
+
+          // Label at center
+          const c = centerOf(shape, coords);
+          placeLabel(hId, tEl ? (tEl.textContent || tEl.innerText || tokenId) : tokenId, c.x, c.y);
+        }
+
+        function makeShape(h){
+          const shape = (h.shape||'').toLowerCase();
+          const coords = h.coords || [];
+          let el=null;
+          if (shape==='rect' && coords.length>=4){
+            const [x1,y1,x2,y2] = coords;
+            const x=Math.min(x1,x2), y=Math.min(y1,y2), rw=Math.abs(x2-x1), rh=Math.abs(y2-y1);
+            el = document.createElementNS('http://www.w3.org/2000/svg','rect');
+            el.setAttribute('x',x); el.setAttribute('y',y);
+            el.setAttribute('width',rw); el.setAttribute('height',rh);
+          } else if (shape==='circle' && coords.length>=3){
+            const [cx,cy,r] = coords;
+            el = document.createElementNS('http://www.w3.org/2000/svg','circle');
+            el.setAttribute('cx',cx); el.setAttribute('cy',cy); el.setAttribute('r',r);
+          } else if ((shape==='poly' || shape==='polygon') && coords.length>=6){
+            el = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+            el.setAttribute('points', coords.join(' '));
+          }
+          if (!el) return null;
+          el.classList.add('drop');
+          el.dataset.id = h.id;
+          // Drag events
+          el.addEventListener('dragover', ev=>{ ev.preventDefault(); el.classList.add('over'); });
+          el.addEventListener('dragleave', ()=> el.classList.remove('over'));
+          el.addEventListener('drop', ev=>{
+            ev.preventDefault(); el.classList.remove('over');
+            const tokenId = ev.dataTransfer.getData('text/plain');
+            if (tokenId) assign(h.id, tokenId, shape, coords);
+          });
+          return el;
+        }
+
+        function draw(){
+          scale();
+          svg.innerHTML='';
+          (model.hotspots||[]).forEach(h=>{
+            const el = makeShape(h);
+            if (el) svg.appendChild(el);
+          });
+          // Reposition labels on resize
+          labelsLayer.querySelectorAll('[data-hot]').forEach(lbl=>{
+            const hId = lbl.getAttribute('data-hot');
+            const h = (model.hotspots||[]).find(x=>x.id===hId);
+            if (!h) return;
+            const c = centerOf(h.shape, h.coords);
+            const rect = img.getBoundingClientRect();
+            const fx = rect.width / view.w, fy = rect.height / view.h;
+            lbl.style.left = (c.x*fx) + 'px';
+            lbl.style.top  = (c.y*fy) + 'px';
+          });
+        }
+
+        if (img.complete && img.naturalWidth) draw();
+        else img.addEventListener('load', draw, {once:true});
+        window.addEventListener('resize', draw);
+
+        // Return tokens to bank by dropping onto bank
+        bank.addEventListener('dragover', ev=>ev.preventDefault());
+        bank.addEventListener('drop', ev=>{
+          ev.preventDefault();
+          const tokenId = ev.dataTransfer.getData('text/plain');
+          if (!tokenId) return;
+          const prevHot = tokenToHot.get(tokenId);
+          if (prevHot){
+            hotToToken.delete(prevHot);
+            labelsLayer.querySelectorAll(`[data-hot="${CSS.escape(prevHot)}"]`).forEach(n=>n.remove());
+            const prevShape = svg.querySelector(`[data-id="${CSS.escape(prevHot)}"]`);
+            if (prevShape) prevShape.classList.remove('over');
+          }
+          tokenToHot.delete(tokenId);
+          const tEl = getTokenEl(tokenId);
+          if (tEl) bank.appendChild(tEl);
+        });
+
+        getUserAnswer = ()=>{
+          const pairs = [];
+          tokenToHot.forEach((hid, tid)=> { if (tid && hid) pairs.push(`${tid} ${hid}`); });
+          return pairs;
+        };
+
+        doLocalReset = ()=>{
+          // Remove labels, clear maps, put tokens back
+          labelsLayer.innerHTML='';
+          tokenToHot.clear(); hotToToken.clear();
+          holder.querySelectorAll('.gm-token').forEach(el=> bank.appendChild(el));
+          svg.querySelectorAll('.drop.over').forEach(el=> el.classList.remove('over'));
+        };
+      }
+
+
+      // CHOICE
+      if (model.type === 'choice') {
+        const grp = document.createElement('div');
+        grp.className = 'choices ' + (model.orientation === 'vertical' ? 'vertical' : 'horizontal');
+        const multi = model.maxChoices === 0 || model.correctIds.length > 1;
+
+        (model.choices || []).forEach(c=>{
+          const lab = document.createElement('label'); lab.className = 'choice';
+
+          const inp = document.createElement('input');
+          inp.type = multi ? 'checkbox' : 'radio';
+          inp.name = 'choice';
+          inp.value = c.identifier;
+          lab.appendChild(inp);
+
+          const span = document.createElement('span');
+          if (c.html) span.innerHTML = c.html;
+          else span.textContent = c.text || c.identifier;
+          lab.appendChild(span);
+
+          grp.appendChild(lab);
+        });
+
+        holder.appendChild(grp);
+        getUserAnswer = () => [...holder.querySelectorAll('input:checked')].map(x=>x.value);
+      }
+
+      // HOTTEXT
+      if (model.type === 'hottext') {
+        const zone = document.createElement('div'); zone.className = 'hottext';
+        zone.innerHTML = model.hottextHTML || '';
+        const spans = zone.querySelectorAll('[data-id]');
+
+        spans.forEach(el=>{
+          el.style.cursor = 'pointer';
+          el.addEventListener('click', ()=>{
+            if (model.singleSelect) {
+              if (!el.classList.contains('active')) {
+                spans.forEach(s=>s.classList.remove('active')); // clear others
+                el.classList.add('active');
+              } else {
+                el.classList.remove('active'); // allow deselect back to none
+              }
+            } else {
+              el.classList.toggle('active'); // multi-select mode
+            }
+          });
+        });
+
+        holder.appendChild(zone);
+        getUserAnswer = () => [...zone.querySelectorAll('.active')].map(x=>x.dataset.id);
+      }
+
+
+      // TEXT ENTRY (inline auto-size; any text allowed)
+      if (model.type === 'textentry') {
+        const inputs = {};
+        (model.entries || []).forEach(ent => {
+          const spot = stem.querySelector(`[data-tei="${ent.id}"]`);
+          if (spot) {
+            const inp = document.createElement('input');
+            inp.type = 'text';
+            inp.className = 'tei-input';
+            const minCh = Math.max(1, ent.width || ent.expected || 1);
+            const maxCh = Math.max(minCh, (ent.width || ent.expected || 12));
+            const autosize = () => {
+              const len = inp.value.length;
+              const ch = Math.min(Math.max(minCh, len || 1), maxCh);
+              inp.style.width = ch + 'ch';
+            };
+            inp.addEventListener('input', autosize);
+            inp.style.width = minCh + 'ch';
+            spot.replaceWith(inp);
+            inputs[ent.id] = inp;
+          }
+        });
+        getUserAnswer = () =>
+          Object.fromEntries(Object.entries(inputs).map(([k, el]) => [k, (el.value || '').trim()]));
+      }
+
+      // HOTSPOT
+      if (model.type === 'hotspot') {
+        const wrap = document.createElement('div'); wrap.className = 'hotspot';
+        const img = document.createElement('img');
+        img.alt = 'Hotspot';
+        img.src = model.image?.src || '';
+        if (model.image?.width)  img.width  = model.image.width;
+        if (model.image?.height) img.height = model.image.height;
+
+        const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+        wrap.appendChild(img);
+        wrap.appendChild(svg);
+        holder.appendChild(wrap);
+
+        const selected = new Set();
+        const multi = model.maxChoices === 0 || (model.correctIds||[]).length > 1;
+
+        const draw = (w,h)=>{
+          svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+          svg.innerHTML = '';
+          (model.choices||[]).forEach(ch=>{
+            const shape = (ch.shape||'').toLowerCase();
+            let el=null;
+            if (shape==='rect' && ch.coords.length>=4){
+              const [x1,y1,x2,y2] = ch.coords;
+              const x=Math.min(x1,x2), y=Math.min(y1,y2), rw=Math.abs(x2-x1), rh=Math.abs(y2-y1);
+              el = document.createElementNS('http://www.w3.org/2000/svg','rect');
+              el.setAttribute('x',x); el.setAttribute('y',y);
+              el.setAttribute('width',rw); el.setAttribute('height',rh);
+            } else if (shape==='circle' && ch.coords.length>=3){
+              const [cx,cy,r] = ch.coords;
+              el = document.createElementNS('http://www.w3.org/2000/svg','circle');
+              el.setAttribute('cx',cx); el.setAttribute('cy',cy); el.setAttribute('r',r);
+            } else if ((shape==='poly' || shape==='polygon') && ch.coords.length>=6){
+              el = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+              el.setAttribute('points', ch.coords.join(' '));
+            }
+            if (el){
+              el.classList.add('area');
+              el.dataset.id = ch.identifier;
+              el.addEventListener('click', (ev)=>{
+                ev.stopPropagation();
+                if (!multi){
+                  // single select
+                  svg.querySelectorAll('.area.selected').forEach(a=>a.classList.remove('selected'));
+                  selected.clear();
+                }
+                if (el.classList.contains('selected')){
+                  el.classList.remove('selected'); selected.delete(ch.identifier);
+                } else {
+                  el.classList.add('selected'); selected.add(ch.identifier);
+                }
+              });
+              svg.appendChild(el);
+            }
+          });
+        };
+
+        // Draw shapes when image size known
+        if (img.complete && img.naturalWidth){
+          draw(img.naturalWidth, img.naturalHeight);
+        } else {
+          img.addEventListener('load', ()=> draw(img.naturalWidth||800, img.naturalHeight||600), {once:true});
+        }
+
+        getUserAnswer = () => Array.from(selected);
+      }
+
+      // ORDER
+
+      function fyShuffle(arr){
+        const a = arr.slice();
+        for (let i=a.length-1; i>0; i--) {
+          const j = Math.floor(Math.random() * (i+1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      }
+
+      if (model.type === 'order') {
+        let items = (model.items || []).map(x => ({...x}));
+        if (model.shuffle) items = fyShuffle(items);
+        const list = document.createElement('div'); list.className = 'order-list';
+        const renderRows = ()=>{
+          list.innerHTML = '';
+          items.forEach((it, idx)=>{
+            const row = document.createElement('div'); row.className = 'order-row';
+            const lbl = document.createElement('div'); lbl.className='lbl';
+            lbl.innerHTML = it.html || it.text || it.identifier;
+            const up = document.createElement('button'); up.textContent='↑';
+            const down = document.createElement('button'); down.textContent='↓';
+            up.addEventListener('click', ()=>{ if(idx>0){ const t=items[idx-1]; items[idx-1]=items[idx]; items[idx]=t; renderRows(); }});
+            down.addEventListener('click', ()=>{ if(idx<items.length-1){ const t=items[idx+1]; items[idx+1]=items[idx]; items[idx]=t; renderRows(); }});
+            row.appendChild(lbl); row.appendChild(up); row.appendChild(down);
+            list.appendChild(row);
+          });
+        };
+        renderRows();
+        holder.appendChild(list);
+        // const note = document.createElement('div'); note.className='note'; note.textContent='Reorder the items to the correct sequence.';
+        // holder.appendChild(note);
+        getUserAnswer = () => items.map(x=>x.identifier);
+      }
+
+      player.appendChild(holder);
+
+      // Footer / feedback
+      const footer = document.createElement('div'); footer.className = 'footer';
+      const left = document.createElement('div'); left.className = 'left';
+      const checkBtn = document.createElement('button'); checkBtn.className='btn primary'; checkBtn.textContent = 'Check';
+      const resetBtn = document.createElement('button'); resetBtn.className='btn ghost'; resetBtn.textContent = 'Reset';
+      left.appendChild(checkBtn); left.appendChild(resetBtn);
+      const result = document.createElement('div'); result.className = 'result muted';
+      footer.appendChild(left); footer.appendChild(result);
+      player.appendChild(footer);
+
+      const msg = document.createElement('div'); msg.className = 'msg feedback';
+      player.appendChild(msg);
+
+      const setMsg = (html, ok) => { msg.style.display='block'; msg.innerHTML = html || (ok ? 'Correct!' : 'Incorrect.'); };
+
+
+            resetBtn.addEventListener('click', ()=>{
+        player.querySelectorAll('input[type=radio], input[type=checkbox]').forEach(i=>i.checked=false);
+        player.querySelectorAll('.hottext .active').forEach(el=>el.classList.remove('active'));
+        player.querySelectorAll('input[type=text]').forEach(i=>i.value='');
+        player.querySelectorAll('.hotspot .selected').forEach(el=>el.classList.remove('selected'));
+        // New: clear any gap-match / graphic-gap-match placements
+        try { doLocalReset(); } catch(e){}
+        result.textContent = ''; result.className = 'result muted';
+        msg.style.display='none'; msg.innerHTML='';
+      });
+
+
+      checkBtn.addEventListener('click', ()=>{
+        const user = getUserAnswer();
+        const ok = evaluate(model, user);
+        result.textContent = ok ? 'Correct' : 'Try again';
+        result.className = 'result ' + (ok ? 'ok' : 'bad');
+        const html = ok ? model.feedback.correct : model.feedback.incorrect;
+        if (html) setMsg(html, ok); else { msg.style.display='none'; msg.innerHTML=''; }
+      });
+    }
+
+    // ---- Evaluation helpers ----
+    function evaluate(model, user){
+      // Text entry: user is map { RESPONSE1: '…' }
+      if (model.type === 'textentry' && model.correctById) {
+        const u = user || {};
+        for (const [rid, correctVals] of Object.entries(model.correctById)) {
+          const got = String(u[rid] || '').trim().toLowerCase();
+          const options = (correctVals || []).map(s => String(s || '').trim().toLowerCase());
+          if (!options.includes(got)) return false;
+        }
+        return true;
+      }
+      // Order: exact sequence
+      if (model.type === 'order') {
+        const corr = model.correctIds || [];
+        return arraysEqual(user, corr);
+      }
+      // Choice / Hottext / Hotspot: set equality (case-insensitive)
+      const corr = model.correctIds || [];
+      const A = norm(user), B = norm(corr);
+      return setEqual(new Set(A), new Set(B));
+    }
+    const norm = arr => (Array.isArray(arr) ? arr : [arr]).filter(Boolean).map(s => String(s).trim().toLowerCase());
+    const setEqual = (a,b)=> a.size===b.size && [...a].every(x=>b.has(x));
+    const arraysEqual = (a,b)=> a.length===b.length && a.every((x,i)=> String(x)===String(b[i]));
+
+    // ---- UI hooks & samples ----
+    document.getElementById('renderBtn').addEventListener('click', ()=> render(xmlTA.value));
+    xmlTA.addEventListener('paste', ()=> setTimeout(()=>render(xmlTA.value), 120));
+
+    document.getElementById('sampleChoice').addEventListener('click', ()=>{
+      xmlTA.value =
+`<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0" identifier="img-choice" title="Which is a square?">
+  <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="identifier">
+    <qti-correct-response><qti-value>A</qti-value></qti-correct-response>
+  </qti-response-declaration>
+  <qti-item-body>
+    <p>Which shape is a square?</p>
+    <qti-choice-interaction response-identifier="RESPONSE" max-choices="1" orientation="horizontal">
+      <qti-simple-choice identifier="A"><img src="https://i.postimg.cc/mrWbcQcy/Copy-of-M-K-Squares-2-WP-72.png"></qti-simple-choice>
+      <qti-simple-choice identifier="B"><img src="https://i.postimg.cc/wx4g5Kyv/Copy-of-M-K-Squares-2-WP-73.png"></qti-simple-choice>
+      <qti-simple-choice identifier="C"><img src="https://i.postimg.cc/nL1tCNfn/Copy-of-M-K-Squares-2-WP-74.png"></qti-simple-choice>
+    </qti-choice-interaction>
+  </qti-item-body>
+</qti-assessment-item>`;
+      render(xmlTA.value);
+    });
+
+    document.getElementById('sampleText').addEventListener('click', ()=>{
+      xmlTA.value =
+`<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0" identifier="text-2" title="Make 3">
+  <qti-response-declaration identifier="RESPONSE1" cardinality="single" base-type="string">
+    <qti-correct-response><qti-value>2</qti-value></qti-correct-response>
+  </qti-response-declaration>
+  <qti-response-declaration identifier="RESPONSE2" cardinality="single" base-type="string">
+    <qti-correct-response><qti-value>1</qti-value></qti-correct-response>
+  </qti-response-declaration>
+  <qti-item-body>
+    This is one way to make 3:<br/><br/><strong>1</strong> and <strong>2</strong>.<br/><br/>
+    Find a different way to make 3.<br/><br/>
+    <qti-text-entry-interaction response-identifier="RESPONSE1" class="qti-input-width-5" expected-length="4" />
+    and
+    <qti-text-entry-interaction response-identifier="RESPONSE2" class="qti-input-width-8" expected-length="6" />
+  </qti-item-body>
+  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/match_correct.xml"/>
+</qti-assessment-item>`;
+      render(xmlTA.value);
+    });
+
+    document.getElementById('sampleHottext').addEventListener('click', ()=>{
+      xmlTA.value =
+`<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0" identifier="hot-1" title="Select nouns">
+  <qti-response-declaration identifier="RESPONSE" cardinality="multiple" base-type="identifier">
+    <qti-correct-response><qti-value>H1</qti-value><qti-value>H3</qti-value></qti-correct-response>
+  </qti-response-declaration>
+  <qti-item-body>
+    <p>Select the nouns: <qti-hottext identifier="H1">cat</qti-hottext> runs <qti-hottext identifier="H2">quickly</qti-hottext> to the <qti-hottext identifier="H3">park</qti-hottext>.</p>
+  </qti-item-body>
+</qti-assessment-item>`;
+      render(xmlTA.value);
+    });
+
+    document.getElementById('sampleOrder').addEventListener('click', ()=>{
+      xmlTA.value =
+`<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0" identifier="ord-1" title="Order numbers">
+  <qti-response-declaration identifier="RESPONSE" cardinality="ordered" base-type="identifier">
+    <qti-correct-response>
+      <qti-value>A</qti-value><qti-value>B</qti-value><qti-value>C</qti-value>
+    </qti-correct-response>
+  </qti-response-declaration>
+  <qti-item-body>
+    <p>Put the numbers in ascending order:</p>
+    <qti-order-interaction response-identifier="RESPONSE">
+      <qti-simple-choice identifier="A">1</qti-simple-choice>
+      <qti-simple-choice identifier="B">3</qti-simple-choice>
+      <qti-simple-choice identifier="C">7</qti-simple-choice>
+    </qti-order-interaction>
+  </qti-item-body>
+</qti-assessment-item>`;
+      render(xmlTA.value);
+    });
+
+    document.getElementById('sampleHotspot').addEventListener('click', ()=>{
+      xmlTA.value =
+`<?xml version="1.0" encoding="UTF-8"?>
+<qti-assessment-item xmlns="http://www.imsglobal.org/xsd/imsqtiasi_v3p0" identifier="hs-1" title="Find the sun">
+  <qti-response-declaration identifier="RESPONSE" cardinality="single" base-type="identifier">
+    <qti-correct-response><qti-value>SUN</qti-value></qti-correct-response>
+  </qti-response-declaration>
+  <qti-item-body>
+    <p>Tap on the <strong>sun</strong> in the picture.</p>
+    <qti-hotspot-interaction response-identifier="RESPONSE" max-choices="1">
+      <qti-object data="https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1200" type="image/jpeg" width="1200" height="800"/>
+      <!-- Example shapes (coords in image pixels) -->
+      <qti-hotspot-choice identifier="SUN" shape="circle" coords="950,180,70"/>
+      <qti-hotspot-choice identifier="TREE" shape="rect" coords="120,420,260,780"/>
+      <qti-hotspot-choice identifier="MOUNTAIN" shape="poly" coords="400,600, 520,380, 640,600"/>
+    </qti-hotspot-interaction>
+  </qti-item-body>
+  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/match_correct.xml"/>
+</qti-assessment-item>`;
+      render(xmlTA.value);
+    });
+
+  
+  </script>
+
+</body>
+</html>

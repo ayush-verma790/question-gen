@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -134,6 +135,9 @@ const parseOrderXML = (xmlString: string): OrderQuestion | null => {
 }
 
 export default function OrderBuilderPage() {
+  const searchParams = useSearchParams();
+  const fromXML = searchParams.get("fromXML");
+  
   const [question, setQuestion] = useState<OrderQuestion>({
     identifier: "order-question-1",
     title: "Sample Order Question",
@@ -285,6 +289,27 @@ export default function OrderBuilderPage() {
       setGeneratedXML(xml)
     }
   }, [question])
+
+  // Handle XML data from XML parser route
+  useEffect(() => {
+    if (fromXML === "true") {
+      const parsedXML = sessionStorage.getItem("parsedXML");
+      const xmlType = sessionStorage.getItem("xmlType");
+      
+      if (parsedXML && xmlType === "order") {
+        const parsedQuestion = parseOrderXML(parsedXML);
+        if (parsedQuestion) {
+          setQuestion(parsedQuestion);
+          // Clear the stored data
+          sessionStorage.removeItem("parsedXML");
+          sessionStorage.removeItem("xmlType");
+        } else {
+          console.error("Error parsing XML from router");
+          alert("Error parsing the XML data. Please check the format.");
+        }
+      }
+    }
+  }, [fromXML]);
 
   const handleImportXML = () => {
     if (!importXML.trim()) return

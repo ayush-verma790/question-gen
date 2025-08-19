@@ -30,6 +30,7 @@ type TextEntryBox = {
   expectedLength?: number;
   patternMask?: string;
   widthClass?: string;
+  createdAt?: number;
 };
 
 type MultipleChoiceOption = {
@@ -47,6 +48,55 @@ type MultipleChoiceQuestion = {
   shuffle: boolean;
   orientation: "vertical" | "horizontal";
   options: MultipleChoiceOption[];
+  createdAt?: number;
+};
+
+type HottextItem = {
+  identifier: string;
+  content: {
+    type: "text" | "image" | "html";
+    value: string;
+  };
+  styles: {
+    display?: string;
+    backgroundColor?: string;
+    color?: string;
+    fontSize?: string;
+    fontFamily?: string;
+    fontWeight?: string;
+    fontStyle?: string;
+    textAlign?: "left" | "center" | "right";
+    textDecoration?: string;
+    textTransform?: "none" | "capitalize" | "uppercase" | "lowercase" | "initial" | "inherit";
+    padding?: string;
+    margin?: string;
+    border?: string;
+    borderRadius?: string;
+    boxShadow?: string;
+    lineHeight?: string;
+    letterSpacing?: string;
+    width?: string;
+    height?: string;
+    maxWidth?: string;
+    maxHeight?: string;
+    objectFit?: "contain" | "cover" | "fill" | "none" | "scale-down";
+    transition?: string;
+  };
+  position: {
+    x: number;
+    y: number;
+  };
+};
+
+type HottextQuestion = {
+  id: string;
+  responseId: string;
+  placeholder: string;
+  maxChoices: number;
+  textContent: string;
+  hottextItems: HottextItem[];
+  correctAnswers: string[];
+  createdAt?: number;
 };
 
 type MixedQuestion = {
@@ -55,6 +105,7 @@ type MixedQuestion = {
   promptBlocks: ContentBlock[];
   textEntryBoxes: TextEntryBox[];
   multipleChoiceQuestions: MultipleChoiceQuestion[];
+  hottextQuestions: HottextQuestion[];
   correctAnswers: string[];
   caseSensitive: boolean;
   correctFeedbackBlocks: ContentBlock[];
@@ -71,6 +122,9 @@ const ContentBlockEditor = memo(
     onInsertTextBox,
     allowMultipleChoice,
     onInsertMultipleChoice,
+    allowHottext,
+    onInsertHottext,
+    autoDetectHottextTags,
   }: {
     blocks: ContentBlock[];
     onChange: (blocks: ContentBlock[]) => void;
@@ -79,6 +133,9 @@ const ContentBlockEditor = memo(
     onInsertTextBox?: (blockId: string) => void;
     allowMultipleChoice?: boolean;
     onInsertMultipleChoice?: (blockId: string) => void;
+    allowHottext?: boolean;
+    onInsertHottext?: (blockId: string) => void;
+    autoDetectHottextTags?: (content: string) => void;
   }) => {
     // State for each component instance
     const [selectedText, setSelectedText] = useState('');
@@ -318,7 +375,7 @@ const ContentBlockEditor = memo(
 
               {block.type === "text" ? (
                 <div className="space-y-2">
-                  {(allowTextBox || allowMultipleChoice) && (
+                  {(allowTextBox || allowMultipleChoice || allowHottext) && (
                     <div className="flex items-center gap-2 mb-2">
                       {allowTextBox && onInsertTextBox && (
                         <Button
@@ -340,6 +397,17 @@ const ContentBlockEditor = memo(
                         >
                           <Plus className="w-4 h-4" />
                           Insert Multiple Choice
+                        </Button>
+                      )}
+                      {allowHottext && onInsertHottext && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onInsertHottext(block.id)}
+                          className="flex items-center gap-1"
+                        >
+                          <Eye className="w-4 h-4" />
+                          Insert Hottext
                         </Button>
                       )}
                     </div>
@@ -581,6 +649,25 @@ const ContentBlockEditor = memo(
                     className="w-full min-h-[100px] border p-2 rounded bg-white"
                   />
                   
+                  {/* Hottext Auto-Detection */}
+                  {block.content.includes('<hottext>') && (
+                    <div className="mt-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-orange-700">
+                          🔥 <strong>Hottext detected!</strong> Click to create hottext question configuration.
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => autoDetectHottextTags(block.content)}
+                          className="bg-orange-100 border-orange-300 text-orange-700 hover:bg-orange-200"
+                        >
+                          Configure Hottext
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* Button Suggestions Section */}
                   <div className="mt-4">
                     <ButtonSuggestions 
@@ -683,12 +770,14 @@ const QuestionPreview = memo(
     promptBlocks,
     textEntryBoxes,
     multipleChoiceQuestions,
+    hottextQuestions,
     correctAnswers,
     onAnswerChange,
   }: {
     promptBlocks: ContentBlock[];
     textEntryBoxes: TextEntryBox[];
     multipleChoiceQuestions: MultipleChoiceQuestion[];
+    hottextQuestions: HottextQuestion[];
     correctAnswers: string[];
     onAnswerChange: (index: number, value: string) => void;
   }) => {
@@ -707,77 +796,111 @@ const QuestionPreview = memo(
         };
 
         if (block.type === "text") {
-          const elements: (string | React.ReactNode)[] = [];
-          let lastIndex = 0;
+          // Create a combined list of all interactive elements with their positions
           let htmlContent = block.content;
+          const interactiveElements: Array<{
+            type: 'textentry' | 'multiplechoice' | 'hottext';
+            position: number;
+            length: number;
+            data: any;
+          }> = [];
 
-          // Handle text entry boxes
+          // Find text entry boxes
           const textBoxRegex = /\[(\d+)\]/g;
           let match;
-
           while ((match = textBoxRegex.exec(htmlContent)) !== null) {
             const idx = parseInt(match[1], 10) - 1;
             const box = textEntryBoxes[idx];
-            const widthClass = box?.widthClass || "qti-input-width-5";
-            const value = correctAnswers[idx] || "";
+            if (box) {
+              interactiveElements.push({
+                type: 'textentry',
+                position: match.index,
+                length: match[0].length,
+                data: { index: idx, box, match: match[0] }
+              });
+            }
+          }
 
-            const preceding = htmlContent.slice(lastIndex, match.index);
+          // Find multiple choice placeholders
+          multipleChoiceQuestions.forEach((mcQuestion) => {
+            const mcIndex = htmlContent.indexOf(mcQuestion.placeholder);
+            if (mcIndex !== -1) {
+              interactiveElements.push({
+                type: 'multiplechoice',
+                position: mcIndex,
+                length: mcQuestion.placeholder.length,
+                data: mcQuestion
+              });
+            }
+          });
+
+          // Find hottext placeholders  
+          hottextQuestions.forEach((hottextQuestion) => {
+            const hottextIndex = htmlContent.indexOf(hottextQuestion.placeholder);
+            if (hottextIndex !== -1) {
+              interactiveElements.push({
+                type: 'hottext',
+                position: hottextIndex,
+                length: hottextQuestion.placeholder.length,
+                data: hottextQuestion
+              });
+            }
+          });
+
+          // Sort elements by position for proper rendering order
+          interactiveElements.sort((a, b) => a.position - b.position);
+
+          // Build the final rendered content
+          const elements: (string | React.ReactNode)[] = [];
+          let lastIndex = 0;
+
+          interactiveElements.forEach((element, elementIndex) => {
+            // Add content before this element
+            const preceding = htmlContent.slice(lastIndex, element.position);
             if (preceding) {
               elements.push(
                 <span
-                  key={lastIndex}
+                  key={`text-${lastIndex}-${element.position}`}
                   dangerouslySetInnerHTML={{ __html: preceding }}
                 />
               );
             }
 
-            elements.push(
-              <input
-                key={"input-" + idx}
-                type="text"
-                className={`${widthClass} border-b-2 border-red-500 bg-white px-1 mx-1`}
-                style={{
-                  display: "inline-block",
-                  height: 24,
-                  verticalAlign: "middle",
-                }}
-                value={value}
-                onChange={(e) => onAnswerChange(idx, e.target.value)}
-              />
-            );
-            lastIndex = match.index + match[0].length;
-          }
+            // Add the interactive element
+            if (element.type === 'textentry') {
+              const { index: idx, box } = element.data;
+              const widthClass = box?.widthClass || "qti-input-width-5";
+              const value = correctAnswers[idx] || "";
 
-          // Handle multiple choice placeholders
-          multipleChoiceQuestions.forEach((mcQuestion) => {
-            const mcIndex = htmlContent.indexOf(mcQuestion.placeholder);
-            
-            if (mcIndex !== -1) {
-              // Add content before multiple choice
-              const beforeMC = htmlContent.slice(lastIndex, mcIndex);
-              if (beforeMC) {
-                elements.push(
-                  <span
-                    key={`before-mc-${lastIndex}-${mcQuestion.id}`}
-                    dangerouslySetInnerHTML={{ __html: beforeMC }}
-                  />
-                );
-              }
-
-              // Add multiple choice component
+              elements.push(
+                <input
+                  key={`input-${idx}`}
+                  type="text"
+                  className={`${widthClass} border-b-2 border-red-500 bg-white px-1 mx-1`}
+                  style={{
+                    display: "inline-block",
+                    height: 24,
+                    verticalAlign: "middle",
+                  }}
+                  value={value}
+                  onChange={(e) => onAnswerChange(idx, e.target.value)}
+                />
+              );
+            } else if (element.type === 'multiplechoice') {
+              const mcQuestion = element.data;
               elements.push(
                 <div key={`mc-${mcQuestion.id}`} className="my-4 p-4 border rounded-lg bg-gray-50">
-                  <h4 className="font-medium mb-3">Choose your answer:</h4>
+                  <h4 className="font-medium mb-3 text-gray-700">Choose your answer:</h4>
                   <div className={`space-y-2 ${mcQuestion.orientation === 'horizontal' ? 'flex flex-wrap gap-4 space-y-0' : ''}`}>
                     {mcQuestion.options.map((option, optionIndex) => (
-                      <label key={option.identifier} className={`flex items-center space-x-2 cursor-pointer ${mcQuestion.orientation === 'horizontal' ? 'min-w-fit' : ''}`}>
+                      <label key={option.identifier} className={`flex items-center space-x-2 cursor-pointer hover:bg-gray-100 p-2 rounded ${mcQuestion.orientation === 'horizontal' ? 'min-w-fit' : ''}`}>
                         <input
                           type={mcQuestion.maxChoices === 1 ? "radio" : "checkbox"}
                           name={`mc-${mcQuestion.id}`}
                           value={option.identifier}
                           className="form-radio"
                         />
-                        <span>
+                        <span className="flex-1">
                           {option.contentBlocks.map((contentBlock, blockIndex) => (
                             <span
                               key={blockIndex}
@@ -790,25 +913,65 @@ const QuestionPreview = memo(
                   </div>
                 </div>
               );
-
-              lastIndex = mcIndex + mcQuestion.placeholder.length;
-              // Update htmlContent to remove the processed placeholder
-              htmlContent = htmlContent.replace(mcQuestion.placeholder, '');
+            } else if (element.type === 'hottext') {
+              const hottextQuestion = element.data;
+              elements.push(
+                <div key={`hottext-${hottextQuestion.id}`} className="my-4 p-4 border rounded-lg bg-blue-50">
+                  <h4 className="font-medium mb-3 text-blue-800">
+                    Select the correct words: 
+                    {hottextQuestion.maxChoices > 0 && ` (Choose up to ${hottextQuestion.maxChoices})`}
+                  </h4>
+                  <div className="text-lg leading-relaxed">
+                    {hottextQuestion.textContent.split(/(<hottext>.*?<\/hottext>)/g).map((segment, segmentIndex) => {
+                      const hottextMatch = segment.match(/<hottext>(.*?)<\/hottext>/);
+                      if (hottextMatch) {
+                        const word = hottextMatch[1];
+                        const correspondingItem = hottextQuestion.hottextItems.find(item => item.content.value === word);
+                        const isCorrect = hottextQuestion.correctAnswers.includes(correspondingItem?.identifier || '');
+                        return (
+                          <span
+                            key={segmentIndex}
+                            className="hottext-item cursor-pointer px-2 py-1 mx-1 rounded bg-yellow-200 hover:bg-yellow-300 border-2 border-transparent hover:border-yellow-400 transition-all"
+                            style={{
+                              display: 'inline-block',
+                              ...correspondingItem?.styles
+                            }}
+                            title={`Click to select${isCorrect ? ' (Correct Answer)' : ''}`}
+                          >
+                            {correspondingItem?.content.type === 'html' ? (
+                              <span dangerouslySetInnerHTML={{ __html: word }} />
+                            ) : (
+                              word
+                            )}
+                          </span>
+                        );
+                      } else {
+                        return (
+                          <span key={segmentIndex} dangerouslySetInnerHTML={{ __html: segment }} />
+                        );
+                      }
+                    })}
+                  </div>
+                </div>
+              );
             }
+
+            lastIndex = element.position + element.length;
           });
 
-          const trailing = htmlContent.slice(lastIndex);
-          if (trailing) {
+          // Add remaining content after all elements
+          const remaining = htmlContent.slice(lastIndex);
+          if (remaining) {
             elements.push(
               <span
-                key={lastIndex}
-                dangerouslySetInnerHTML={{ __html: trailing }}
+                key={`remaining-${lastIndex}`}
+                dangerouslySetInnerHTML={{ __html: remaining }}
               />
             );
           }
 
           return (
-            <div key={block.id} style={style} className="whitespace-pre-wrap">
+            <div key={block.id} style={style}>
               {elements}
             </div>
           );
@@ -858,17 +1021,15 @@ const QuestionPreview = memo(
         }
         return null;
       });
-    }, [promptBlocks, textEntryBoxes, correctAnswers, onAnswerChange]);
+    }, [promptBlocks, textEntryBoxes, multipleChoiceQuestions, hottextQuestions, correctAnswers, onAnswerChange]);
 
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Eye className="w-5 h-5" />
-            Preview
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      <details className="border rounded-lg" open>
+        <summary className="p-4 font-semibold cursor-pointer hover:bg-gray-50 flex items-center gap-2">
+          <Eye className="w-5 h-5" />
+          Preview
+        </summary>
+        <div className="p-4 border-t bg-white">
           {promptBlocks.length > 0 ? (
             <div className="space-y-4">
               {renderedBlocks}
@@ -897,8 +1058,8 @@ const QuestionPreview = memo(
           ) : (
             <p className="text-gray-500">Add content to see preview</p>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </details>
     );
   }
 );
@@ -924,27 +1085,23 @@ const TextBoxConfiguration = memo(
 
     if (textEntryBoxes.length === 0) {
       return (
-        <Card>
-          <CardHeader>
-            <CardTitle>Text Box Configuration</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <details className="border rounded-lg" open>
+          <summary className="p-4 font-semibold cursor-pointer hover:bg-gray-50">
+            Text Box Configuration (0 text boxes in question)
+          </summary>
+          <div className="p-4 border-t bg-white">
             <p className="text-gray-500">No text boxes added yet. Use the "Add Text Box at Cursor" button in the Question tab to add text boxes.</p>
-          </CardContent>
-        </Card>
+          </div>
+        </details>
       );
     }
 
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Text Box Configuration</CardTitle>
-          <p className="text-sm text-gray-600">
-            {textEntryBoxes.length} text box
-            {textEntryBoxes.length !== 1 ? "es" : ""} in question
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <details className="border rounded-lg" open>
+        <summary className="p-4 font-semibold cursor-pointer hover:bg-gray-50">
+          Text Box Configuration ({textEntryBoxes.length} text box{textEntryBoxes.length !== 1 ? "es" : ""} in question)
+        </summary>
+        <div className="p-4 border-t bg-white space-y-4">
           {textEntryBoxes.map((box, index) => (
             <div key={box.id} className="border rounded-lg p-4 space-y-3">
               <div className="flex justify-between items-center">
@@ -1020,8 +1177,8 @@ const TextBoxConfiguration = memo(
               </div>
             </div>
           ))}
-        </CardContent>
-      </Card>
+        </div>
+      </details>
     );
   }
 );
@@ -1084,17 +1241,15 @@ const MultipleChoiceConfiguration = memo(
 
     return (
       <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex justify-between items-center">
-              <span>Multiple Choice Questions ({multipleChoiceQuestions.length})</span>
-              <Button onClick={onAddQuestion} size="sm">
-                <Plus className="w-4 h-4 mr-2" />
-                Add MC Question
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
+        <details className="border rounded-lg" open>
+          <summary className="p-4 font-semibold cursor-pointer hover:bg-gray-50 flex justify-between items-center">
+            <span>Multiple Choice Questions ({multipleChoiceQuestions.length})</span>
+            <Button onClick={onAddQuestion} size="sm">
+              <Plus className="w-4 h-4 mr-2" />
+              Add MC Question
+            </Button>
+          </summary>
+          <div className="p-4 border-t bg-white space-y-6">
             {multipleChoiceQuestions.length === 0 ? (
               <p className="text-gray-500 text-center py-8">
                 No multiple choice questions yet. Use "Insert Multiple Choice" in the content editor to add them at specific positions.
@@ -1260,14 +1415,268 @@ const MultipleChoiceConfiguration = memo(
                 </div>
               ))
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </details>
       </div>
     );
   }
 );
 
 MultipleChoiceConfiguration.displayName = "MultipleChoiceConfiguration";
+
+// Hottext Configuration Component
+const HottextConfiguration = memo(
+  ({
+    hottextQuestions,
+    onUpdateQuestion,
+    onRemoveQuestion,
+    onAddItem,
+    onUpdateItem,
+    onRemoveItem,
+  }: {
+    hottextQuestions: HottextQuestion[];
+    onUpdateQuestion: (index: number, updates: Partial<HottextQuestion>) => void;
+    onRemoveQuestion: (index: number) => void;
+    onAddItem: (questionIndex: number) => void;
+    onUpdateItem: (questionIndex: number, itemIndex: number, updates: Partial<HottextItem>) => void;
+    onRemoveItem: (questionIndex: number, itemIndex: number) => void;
+  }) => {
+    return (
+      <div className="space-y-6">
+        <details className="border rounded-lg" open>
+          <summary className="p-4 font-semibold cursor-pointer hover:bg-gray-50 flex justify-between items-center">
+            <span>Hottext Questions Configuration</span>
+            <div className="text-sm text-gray-500">
+              {hottextQuestions.length} hottext question{hottextQuestions.length !== 1 ? 's' : ''}
+            </div>
+          </summary>
+          <div className="p-4 border-t bg-white">
+            {hottextQuestions.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Eye className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>No hottext questions added yet.</p>
+                <p className="text-sm">Add hottext placeholders to your question prompt above.</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {hottextQuestions.map((question, questionIndex) => (
+                  <Card key={question.id} className="border-l-4 border-l-purple-500">
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-lg">
+                            Hottext Question {questionIndex + 1}
+                          </CardTitle>
+                          <p className="text-sm text-gray-500 mt-1">
+                            Placeholder: {question.placeholder}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onRemoveQuestion(questionIndex)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Response ID and Max Choices */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor={`hottext-response-${questionIndex}`}>Response Identifier</Label>
+                          <Input
+                            id={`hottext-response-${questionIndex}`}
+                            value={question.responseId}
+                            onChange={(e) => onUpdateQuestion(questionIndex, { responseId: e.target.value })}
+                            placeholder="HOT_RESPONSE_1"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor={`hottext-max-choices-${questionIndex}`}>
+                            Max Choices (0 = unlimited)
+                          </Label>
+                          <Input
+                            id={`hottext-max-choices-${questionIndex}`}
+                            type="number"
+                            min="0"
+                            value={question.maxChoices}
+                            onChange={(e) => onUpdateQuestion(questionIndex, { maxChoices: parseInt(e.target.value) || 0 })}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Text Content */}
+                      <div>
+                        <Label htmlFor={`hottext-content-${questionIndex}`}>
+                          Hottext Content (HTML supported - Mark words with &lt;hottext&gt; tags)
+                        </Label>
+                        <Textarea
+                          id={`hottext-content-${questionIndex}`}
+                          value={question.textContent}
+                          onChange={(e) => onUpdateQuestion(questionIndex, { textContent: e.target.value })}
+                          placeholder="Programming is a <hottext>creative</hottext> process that involves <hottext><b>problem-solving</b></hottext> and <hottext><em>logical thinking</em></hottext>."
+                          rows={6}
+                        />
+                        <div className="text-xs text-gray-500 mt-1 space-y-1">
+                          <p>• Wrap words in &lt;hottext&gt; tags to make them selectable</p>
+                          <p>• Use HTML inside hottext tags: &lt;hottext&gt;&lt;b&gt;bold word&lt;/b&gt;&lt;/hottext&gt;</p>
+                          <p>• Configure each hottext item below to set correct answers and styling</p>
+                        </div>
+                        
+                        {/* Live Preview */}
+                        <div className="mt-3 p-4 bg-blue-50 border rounded-lg">
+                          <Label className="text-sm font-semibold text-blue-800 mb-2 block">Live Preview:</Label>
+                          <div 
+                            className="text-lg leading-relaxed"
+                            dangerouslySetInnerHTML={{ 
+                              __html: question.textContent.replace(
+                                /<hottext>(.*?)<\/hottext>/g, 
+                                '<span class="bg-yellow-200 px-2 py-1 rounded cursor-pointer border-2 border-yellow-400 mx-1">$1</span>'
+                              )
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Hottext Items */}
+                      <div>
+                        <div className="flex justify-between items-center mb-3">
+                          <Label className="text-base font-semibold">Hottext Items</Label>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onAddItem(questionIndex)}
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add Item
+                          </Button>
+                        </div>
+                        
+                        {question.hottextItems.length === 0 ? (
+                          <div className="text-center py-4 text-gray-500 border-2 border-dashed border-gray-200 rounded-lg">
+                            <p>No hottext items defined.</p>
+                            <p className="text-sm">Add items to configure which words are correct answers.</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {question.hottextItems.map((item, itemIndex) => (
+                              <div key={item.identifier} className="border rounded-lg p-4 bg-gray-50">
+                                <div className="flex justify-between items-start mb-3">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium">Item {itemIndex + 1}</span>
+                                    <Checkbox
+                                      checked={hottextQuestions[questionIndex].correctAnswers.includes(item.identifier)}
+                                      onCheckedChange={(checked) => {
+                                        const currentCorrectAnswers = hottextQuestions[questionIndex].correctAnswers;
+                                        const newCorrectAnswers = checked 
+                                          ? [...currentCorrectAnswers, item.identifier]
+                                          : currentCorrectAnswers.filter(id => id !== item.identifier);
+                                        onUpdateQuestion(questionIndex, { correctAnswers: newCorrectAnswers });
+                                      }}
+                                    />
+                                    <Label className="text-sm">Correct Answer</Label>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => onRemoveItem(questionIndex, itemIndex)}
+                                    className="text-red-500 hover:text-red-700 p-1"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <div>
+                                    <Label htmlFor={`item-id-${questionIndex}-${itemIndex}`}>Identifier</Label>
+                                    <Input
+                                      id={`item-id-${questionIndex}-${itemIndex}`}
+                                      value={item.identifier}
+                                      onChange={(e) => 
+                                        onUpdateItem(questionIndex, itemIndex, { identifier: e.target.value })
+                                      }
+                                      placeholder="H1"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label htmlFor={`item-content-${questionIndex}-${itemIndex}`}>
+                                      Content (HTML supported)
+                                    </Label>
+                                    <Textarea
+                                      id={`item-content-${questionIndex}-${itemIndex}`}
+                                      value={item.content.value}
+                                      onChange={(e) => 
+                                        onUpdateItem(questionIndex, itemIndex, { 
+                                          content: { ...item.content, value: e.target.value }
+                                        })
+                                      }
+                                      placeholder="word or <b>bold word</b> or <i>italic</i>"
+                                      rows={2}
+                                    />
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      💡 Use HTML tags like &lt;b&gt;, &lt;i&gt;, &lt;span style="color:red"&gt;, etc.
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Content Type Selector */}
+                                  <div>
+                                    <Label htmlFor={`item-type-${questionIndex}-${itemIndex}`}>Content Type</Label>
+                                    <select
+                                      id={`item-type-${questionIndex}-${itemIndex}`}
+                                      value={item.content.type}
+                                      onChange={(e) => 
+                                        onUpdateItem(questionIndex, itemIndex, { 
+                                          content: { ...item.content, type: e.target.value as "text" | "image" | "html" }
+                                        })
+                                      }
+                                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                    >
+                                      <option value="text">Plain Text</option>
+                                      <option value="html">HTML Content</option>
+                                      <option value="image">Image URL</option>
+                                    </select>
+                                  </div>
+                                </div>
+                                
+                                {/* Live Preview */}
+                                <div className="mt-3 p-3 bg-white border rounded">
+                                  <Label className="text-xs text-gray-600 mb-2 block">Live Preview:</Label>
+                                  <div 
+                                    className="min-h-[24px] px-2 py-1 border rounded bg-yellow-100"
+                                    style={{
+                                      ...item.styles,
+                                      display: 'inline-block'
+                                    }}
+                                  >
+                                    {item.content.type === 'html' ? (
+                                      <span dangerouslySetInnerHTML={{ __html: item.content.value }} />
+                                    ) : item.content.type === 'image' ? (
+                                      <img src={item.content.value} alt="Hottext" className="max-h-6 inline" />
+                                    ) : (
+                                      <span>{item.content.value}</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        </details>
+      </div>
+    );
+  }
+);
+
+HottextConfiguration.displayName = "HottextConfiguration";
 
 // XML Generation Utilities
 function escapeXml(unsafe: string): string {
@@ -1329,6 +1738,7 @@ function generateMixedXML(question: MixedQuestion): string {
     promptBlocks,
     textEntryBoxes,
     multipleChoiceQuestions,
+    hottextQuestions,
     correctAnswers,
     correctFeedbackBlocks,
     incorrectFeedbackBlocks,
@@ -1362,7 +1772,22 @@ function generateMixedXML(question: MixedQuestion): string {
     })
     .join("\n");
 
-  const allResponseDeclarations = [textEntryResponseDeclarations, mcResponseDeclarations]
+  // Generate response declarations for hottext questions
+  const hottextResponseDeclarations = hottextQuestions
+    .map((hottextQuestion) => {
+      const correctValues = hottextQuestion.hottextItems
+        .filter(item => hottextQuestion.correctAnswers.includes(item.identifier))
+        .map(item => item.identifier);
+        
+      return `      <qti-response-declaration identifier="${hottextQuestion.responseId}" cardinality="multiple" base-type="identifier">
+        <qti-correct-response>
+${correctValues.map(value => `          <qti-value>${value}</qti-value>`).join('\n')}
+        </qti-correct-response>
+      </qti-response-declaration>`;
+    })
+    .join("\n");
+
+  const allResponseDeclarations = [textEntryResponseDeclarations, mcResponseDeclarations, hottextResponseDeclarations]
     .filter(Boolean)
     .join("\n");
 
@@ -1405,6 +1830,28 @@ ${mcChoicesHtml}
         
         content = content.replace(mcQuestion.placeholder, mcInteraction);
       });
+
+      // Replace hottext placeholders
+      hottextQuestions.forEach((hottextQuestion) => {
+        let hottextContent = hottextQuestion.textContent;
+        
+        // Replace <hottext> tags with actual qti-hottext elements
+        hottextQuestion.hottextItems.forEach(item => {
+          // Handle both HTML and plain text content
+          const contentValue = item.content.type === 'html' ? item.content.value : escapeXml(item.content.value);
+          const hottextRegex = new RegExp(`<hottext>${escapeRegExp(item.content.value)}</hottext>`, 'g');
+          hottextContent = hottextContent.replace(hottextRegex, `<qti-hottext identifier="${item.identifier}">${contentValue}</qti-hottext>`);
+        });
+
+        // Ensure proper XML structure for hottext interaction
+        const hottextInteraction = `    <qti-hottext-interaction response-identifier="${hottextQuestion.responseId}"${
+          hottextQuestion.maxChoices > 0 ? ` max-choices="${hottextQuestion.maxChoices}"` : ''
+        }>
+      <p>${hottextContent}</p>
+    </qti-hottext-interaction>`;
+        
+        content = content.replace(hottextQuestion.placeholder, hottextInteraction);
+      });
       
       promptContent += content;
     } else {
@@ -1420,31 +1867,51 @@ ${mcChoicesHtml}
     .map((block) => (block.type === "text" ? block.content : ""))
     .join("\n");
 
-  // Generate response processing based on whether we have both types
+  // Generate response processing based on whether we have interaction types
   const hasTextEntry = textEntryBoxes.length > 0;
   const hasMultipleChoice = multipleChoiceQuestions.length > 0;
+  const hasHottext = hottextQuestions.length > 0;
   
   let responseProcessing = '';
   
-  if (hasTextEntry && hasMultipleChoice) {
-    // Both text entry and multiple choice - need custom processing
-    const mcMatches = multipleChoiceQuestions.map(mcQuestion => `          <qti-match>
+  if (hasTextEntry || hasMultipleChoice || hasHottext) {
+    // Custom processing for mixed interactions
+    const allMatches = [];
+    
+    // Add text entry matches
+    if (hasTextEntry) {
+      allMatches.push(...textEntryBoxes.map(box => `          <qti-match>
+            <qti-variable identifier="${box.responseId}"/>
+            <qti-correct identifier="${box.responseId}"/>
+          </qti-match>`));
+    }
+    
+    // Add multiple choice matches
+    if (hasMultipleChoice) {
+      allMatches.push(...multipleChoiceQuestions.map(mcQuestion => `          <qti-match>
             <qti-variable identifier="${mcQuestion.responseId}"/>
             <qti-correct identifier="${mcQuestion.responseId}"/>
-          </qti-match>`).join('\n');
+          </qti-match>`));
+    }
+    
+    // Add hottext matches
+    if (hasHottext) {
+      allMatches.push(...hottextQuestions.map(hottextQuestion => `          <qti-match>
+            <qti-variable identifier="${hottextQuestion.responseId}"/>
+            <qti-correct identifier="${hottextQuestion.responseId}"/>
+          </qti-match>`));
+    }
+
+    const totalScore = textEntryBoxes.length + multipleChoiceQuestions.length + hottextQuestions.length;
           
     responseProcessing = `  <qti-response-processing>
     <qti-response-condition>
       <qti-response-if>
         <qti-and>
-${mcMatches}
-${textEntryBoxes.map(box => `          <qti-match>
-            <qti-variable identifier="${box.responseId}"/>
-            <qti-correct identifier="${box.responseId}"/>
-          </qti-match>`).join('\n')}
+${allMatches.join('\n')}
         </qti-and>
         <qti-set-outcome-value identifier="SCORE">
-          <qti-base-value base-type="float">${textEntryBoxes.length + multipleChoiceQuestions.length}</qti-base-value>
+          <qti-base-value base-type="float">${totalScore}</qti-base-value>
         </qti-set-outcome-value>
       </qti-response-if>
       <qti-response-else>
@@ -1454,11 +1921,8 @@ ${textEntryBoxes.map(box => `          <qti-match>
       </qti-response-else>
     </qti-response-condition>
   </qti-response-processing>`;
-  } else if (hasMultipleChoice) {
-    // Only multiple choice
-    responseProcessing = `  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/match_correct.xml"/>`;
   } else {
-    // Only text entry
+    // Use standard template if no interactions
     responseProcessing = `  <qti-response-processing template="https://purl.imsglobal.org/spec/qti/v3p0/rptemplates/match_correct.xml"/>`;
   }
 
@@ -1505,17 +1969,17 @@ ${responseProcessing}
 
 // Main Component
 export default function MixedQuestionBuilderPage() {
-  const [activeTab, setActiveTab] = useState<'question'|'feedbacks'|'textentry'|'multiplechoice'|'preview'>('question');
+  const [activeTab, setActiveTab] = useState<'question'|'feedbacks'|'textentry'|'multiplechoice'|'hottext'|'preview'>('question');
   const [cursorPosition, setCursorPosition] = useState<number | null>(null);
 
   const [question, setQuestion] = useState<MixedQuestion>({
     identifier: "mixed-question-1",
-    title: "Mixed Question with Text Boxes",
+    title: "Technology and Programming Quiz",
     promptBlocks: [
       {
         id: "prompt_block_1",
         type: "text",
-        content: "",
+        content: "Complete this interactive quiz about programming concepts. Fill in the blanks, select the correct options, and identify key terms. <br/><br/>Programming is a <hottext>creative</hottext> process that involves <hottext>problem-solving</hottext> and <hottext>logical thinking</hottext>. <br/><br/>What is the primary purpose of a compiler? [1] <br/><br/>Which programming paradigm emphasizes functions as first-class citizens? [MC_1] <br/><br/>The most popular version control system is [2].",
         styles: {
           fontSize: "18px",
           fontFamily: "Arial, sans-serif",
@@ -1530,8 +1994,22 @@ export default function MixedQuestionBuilderPage() {
         attributes: {},
       },
     ],
-    textEntryBoxes: [],
+    textEntryBoxes: [
+      {
+        id: "text_entry_1",
+        responseId: "RESPONSE_1",
+        expectedLength: 25,
+        widthClass: "w-64",
+      },
+      {
+        id: "text_entry_2", 
+        responseId: "RESPONSE_2",
+        expectedLength: 10,
+        widthClass: "w-32",
+      }
+    ],
     multipleChoiceQuestions: [],
+    hottextQuestions: [],
     correctAnswers: [],
     caseSensitive: false,
     correctFeedbackBlocks: [
@@ -1569,6 +2047,93 @@ export default function MixedQuestionBuilderPage() {
   });
 
   const [generatedXML, setGeneratedXML] = useState("");
+  const [xmlParserOpen, setXmlParserOpen] = useState(false);
+  const [pastedXML, setPastedXML] = useState("");
+
+  // XML Parser Function
+  const parseQTIXML = useCallback((xmlString: string) => {
+    try {
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+      
+      if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
+        alert("Invalid XML format. Please check your XML and try again.");
+        return;
+      }
+
+      // Extract identifier and title
+      const assessmentItem = xmlDoc.querySelector("qti-assessment-item");
+      const identifier = assessmentItem?.getAttribute("identifier") || "imported-question";
+      const title = assessmentItem?.getAttribute("title") || "Imported Question";
+
+      // Extract content from qti-item-body
+      const itemBody = xmlDoc.querySelector("qti-item-body");
+      let extractedContent = "";
+      
+      if (itemBody) {
+        // Extract all content including interactions
+        const children = Array.from(itemBody.children);
+        children.forEach((child) => {
+          if (child.tagName === "qti-hottext-interaction") {
+            // Convert hottext interaction back to our format
+            const responseId = child.getAttribute("response-identifier") || "";
+            const hottextElements = child.querySelectorAll("qti-hottext");
+            let text = child.textContent || "";
+            
+            // Replace qti-hottext elements with our hottext format
+            hottextElements.forEach((hottext) => {
+              const id = hottext.getAttribute("identifier") || "";
+              const content = hottext.textContent || "";
+              text = text.replace(content, `<hottext>${content}</hottext>`);
+            });
+            
+            extractedContent += `[HOTTEXT_${responseId}] `;
+          } else if (child.tagName === "qti-choice-interaction") {
+            const responseId = child.getAttribute("response-identifier") || "";
+            extractedContent += `[MC_${responseId}] `;
+          } else if (child.tagName === "qti-text-entry-interaction") {
+            const responseId = child.getAttribute("response-identifier") || "";
+            extractedContent += `[${responseId}] `;
+          } else {
+            extractedContent += child.textContent || "";
+          }
+        });
+      }
+
+      // Update the question state
+      setQuestion(prev => ({
+        ...prev,
+        identifier,
+        title,
+        promptBlocks: [{
+          id: "imported_block_1",
+          type: "text",
+          content: extractedContent.trim(),
+          styles: {
+            fontSize: "16px",
+            fontFamily: "Arial, sans-serif",
+            color: "#333",
+            padding: "16px",
+          },
+          attributes: {},
+        }],
+        // Reset other fields - you can enhance this to parse more details
+        textEntryBoxes: [],
+        multipleChoiceQuestions: [],
+        hottextQuestions: [],
+        correctAnswers: []
+      }));
+
+      alert("XML parsed successfully! Check the Question tab to see imported content.");
+      setPastedXML("");
+      setXmlParserOpen(false);
+      setActiveTab('question');
+      
+    } catch (error) {
+      console.error("XML parsing error:", error);
+      alert("Error parsing XML. Please check the format and try again.");
+    }
+  }, []);
 
   // Generate XML function
   const generateXML = useCallback(() => {
@@ -1816,6 +2381,643 @@ export default function MixedQuestionBuilderPage() {
     });
   }, [cursorPosition]);
 
+  // Insert Hottext function
+  const insertHottext = useCallback((blockId: string) => {
+    setQuestion((prev) => {
+      const blockIndex = prev.promptBlocks.findIndex(block => block.id === blockId);
+      if (blockIndex === -1) return prev;
+
+      // Create new hottext question
+      const newIndex = prev.hottextQuestions.length;
+      const newQuestion: HottextQuestion = {
+        id: `hottext_question_${Date.now()}_${newIndex}`,
+        responseId: `HOT_RESPONSE_${newIndex + 1}`,
+        placeholder: `[HOT_${newIndex + 1}]`,
+        maxChoices: 0, // Multiple selection allowed by default
+        textContent: "Click here to edit hottext content and mark words as hottext items",
+        hottextItems: [],
+        correctAnswers: [],
+      };
+
+      const block = prev.promptBlocks[blockIndex];
+      let newContent = block.content;
+
+      // Insert at cursor position if available, otherwise append
+      if (cursorPosition !== null) {
+        newContent =
+          block.content.slice(0, cursorPosition) +
+          newQuestion.placeholder +
+          block.content.slice(cursorPosition);
+      } else {
+        newContent += newQuestion.placeholder;
+      }
+
+      return {
+        ...prev,
+        promptBlocks: prev.promptBlocks.map((block) => {
+          if (block.id !== blockId) return block;
+          return { ...block, content: newContent };
+        }),
+        hottextQuestions: [...prev.hottextQuestions, newQuestion],
+      };
+    });
+  }, [cursorPosition]);
+
+  // Hottext Management Functions
+  const updateHottextQuestion = useCallback((questionIndex: number, updates: Partial<HottextQuestion>) => {
+    setQuestion((prev) => ({
+      ...prev,
+      hottextQuestions: prev.hottextQuestions.map((q, index) =>
+        index === questionIndex ? { ...q, ...updates } : q
+      ),
+    }));
+  }, []);
+
+  // Auto-detect hottext tags and create questions
+  const autoDetectHottextTags = useCallback((content: string) => {
+    const hottextRegex = /<hottext>(.*?)<\/hottext>/g;
+    const matches = [...content.matchAll(hottextRegex)];
+    
+    if (matches.length === 0) return;
+
+    // Check if we already have a hottext question for this content
+    const existingQuestion = question.hottextQuestions.find(q => 
+      q.textContent === content || content.includes(q.placeholder)
+    );
+
+    if (existingQuestion) {
+      // Update existing question with new hottext items
+      const newItems: HottextItem[] = matches.map((match, index) => ({
+        identifier: `H${index + 1}`,
+        content: {
+          type: "text" as const,
+          value: match[1]
+        },
+        styles: {
+          backgroundColor: "#fef3c7",
+          color: "#92400e",
+          padding: "2px 4px",
+          borderRadius: "4px",
+          cursor: "pointer"
+        },
+        position: { x: 0, y: 0 }
+      }));
+
+      const questionIndex = question.hottextQuestions.findIndex(q => q.id === existingQuestion.id);
+      updateHottextQuestion(questionIndex, {
+        textContent: content,
+        hottextItems: newItems,
+        correctAnswers: [] // Reset correct answers when items change
+      });
+    } else {
+      // Create new hottext question
+      const newIndex = question.hottextQuestions.length;
+      const newQuestion: HottextQuestion = {
+        id: `hottext_question_auto_${Date.now()}`,
+        responseId: `HOT_RESPONSE_${newIndex + 1}`,
+        placeholder: `[HOT_AUTO_${newIndex + 1}]`,
+        maxChoices: 0,
+        textContent: content,
+        hottextItems: matches.map((match, index) => ({
+          identifier: `H${index + 1}`,
+          content: {
+            type: "text" as const,
+            value: match[1]
+          },
+          styles: {
+            backgroundColor: "#fef3c7",
+            color: "#92400e", 
+            padding: "2px 4px",
+            borderRadius: "4px",
+            cursor: "pointer"
+          },
+          position: { x: 0, y: 0 }
+        })),
+        correctAnswers: []
+      };
+
+      setQuestion(prev => ({
+        ...prev,
+        hottextQuestions: [...prev.hottextQuestions, newQuestion]
+      }));
+
+      // Show notification
+      alert(`🔥 Auto-detected ${matches.length} hottext items! Go to the Hottext tab to configure correct answers.`);
+    }
+  }, [question.hottextQuestions, updateHottextQuestion]);
+
+  const removeHottextQuestion = useCallback((questionIndex: number) => {
+    setQuestion((prev) => {
+      const question = prev.hottextQuestions[questionIndex];
+      const placeholderRegex = new RegExp(question.placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "g");
+
+      return {
+        ...prev,
+        promptBlocks: prev.promptBlocks.map((block) => ({
+          ...block,
+          content: block.content.replace(placeholderRegex, ""),
+        })),
+        hottextQuestions: prev.hottextQuestions.filter((_, index) => index !== questionIndex),
+      };
+    });
+  }, []);
+
+  const addHottextItem = useCallback((questionIndex: number) => {
+    setQuestion((prev) => {
+      const question = prev.hottextQuestions[questionIndex];
+      const newItem: HottextItem = {
+        identifier: `H${question.hottextItems.length + 1}`,
+        content: {
+          type: "text",
+          value: `hottext${question.hottextItems.length + 1}`
+        },
+        styles: {},
+        position: { x: 0, y: 0 },
+      };
+
+      return {
+        ...prev,
+        hottextQuestions: prev.hottextQuestions.map((q, index) =>
+          index === questionIndex
+            ? { ...q, hottextItems: [...q.hottextItems, newItem] }
+            : q
+        ),
+      };
+    });
+  }, []);
+
+  const updateHottextItem = useCallback((questionIndex: number, itemIndex: number, updates: Partial<HottextItem>) => {
+    setQuestion((prev) => ({
+      ...prev,
+      hottextQuestions: prev.hottextQuestions.map((q, qIndex) =>
+        qIndex === questionIndex
+          ? {
+              ...q,
+              hottextItems: q.hottextItems.map((item, iIndex) =>
+                iIndex === itemIndex ? { ...item, ...updates } : item
+              ),
+            }
+          : q
+      ),
+    }));
+  }, []);
+
+  const removeHottextItem = useCallback((questionIndex: number, itemIndex: number) => {
+    setQuestion((prev) => ({
+      ...prev,
+      hottextQuestions: prev.hottextQuestions.map((q, qIndex) =>
+        qIndex === questionIndex
+          ? { ...q, hottextItems: q.hottextItems.filter((_, iIndex) => iIndex !== itemIndex) }
+          : q
+      ),
+    }));
+  }, []);
+
+  // Example data functions
+  const loadChoiceExample = useCallback(() => {
+    const now = Date.now();
+    setQuestion({
+      identifier: "choice-example-1",
+      title: "Multiple Choice Programming Quiz with HTML",
+      promptBlocks: [
+        {
+          id: "prompt_block_1",
+          type: "text",
+          content: "Which programming language is known for its <strong style='color: #4f46e5;'>simplicity</strong> and <em style='color: #059669;'>readability</em>? [MC_1]",
+          styles: {
+            fontSize: "18px",
+            fontFamily: "Arial, sans-serif",
+            color: "#2c3e50",
+            backgroundColor: "#f8f9fa",
+            padding: "16px",
+            margin: "8px",
+            borderRadius: "8px",
+            border: "1px solid #e9ecef",
+            textAlign: "left",
+          },
+          attributes: {},
+        },
+      ],
+      textEntryBoxes: [],
+      multipleChoiceQuestions: [
+        {
+          id: "mc_question_1",
+          responseId: "MC_RESPONSE_1",
+          placeholder: "[MC_1]",
+          maxChoices: 1,
+          shuffle: false,
+          orientation: "vertical",
+          createdAt: now,
+          options: [
+            {
+              identifier: "A",
+              contentBlocks: [
+                {
+                  id: "option_a_1",
+                  type: "text",
+                  content: "<span style='color: #4f46e5; font-weight: bold;'>🐍 Python</span> - Easy to learn and very readable",
+                  styles: {},
+                  attributes: {},
+                }
+              ],
+              isCorrect: true,
+              inlineFeedbackBlocks: [],
+            },
+            {
+              identifier: "B", 
+              contentBlocks: [
+                {
+                  id: "option_b_1",
+                  type: "text",
+                  content: "<span style='color: #dc2626; font-weight: bold;'>⚡ C++</span> - Fast but <u>complex syntax</u>",
+                  styles: {},
+                  attributes: {},
+                }
+              ],
+              isCorrect: false,
+              inlineFeedbackBlocks: [],
+            },
+            {
+              identifier: "C",
+              contentBlocks: [
+                {
+                  id: "option_c_1", 
+                  type: "text",
+                  content: "<span style='color: #059669; font-weight: bold;'>🔧 Assembly</span> - <small>Low-level programming</small>",
+                  styles: {},
+                  attributes: {},
+                }
+              ],
+              isCorrect: false,
+              inlineFeedbackBlocks: [],
+            }
+          ],
+        }
+      ],
+      hottextQuestions: [],
+      correctAnswers: [],
+      caseSensitive: false,
+      correctFeedbackBlocks: [],
+      incorrectFeedbackBlocks: [],
+    });
+    setActiveTab('multiplechoice');
+  }, []);
+
+  const loadTextEntryExample = useCallback(() => {
+    const now = Date.now();
+    setQuestion({
+      identifier: "textentry-example-1",
+      title: "Programming Fill-in-the-Blanks with HTML",
+      promptBlocks: [
+        {
+          id: "prompt_block_1",
+          type: "text",
+          content: "The most popular <strong>version control system</strong> is [1] and it was created by [2]. <br/><br/><em>Python</em> was first released in the year [3].",
+          styles: {
+            fontSize: "18px",
+            fontFamily: "Arial, sans-serif",
+            color: "#2c3e50",
+            backgroundColor: "#f8f9fa",
+            padding: "16px",
+            margin: "8px",
+            borderRadius: "8px",
+            border: "1px solid #e9ecef",
+            textAlign: "left",
+          },
+          attributes: {},
+        },
+      ],
+      textEntryBoxes: [
+        {
+          id: "text_entry_1",
+          responseId: "RESPONSE_1",
+          expectedLength: 3,
+          widthClass: "w-24",
+          createdAt: now,
+        },
+        {
+          id: "text_entry_2", 
+          responseId: "RESPONSE_2",
+          expectedLength: 15,
+          widthClass: "w-48",
+          createdAt: now + 1,
+        },
+        {
+          id: "text_entry_3", 
+          responseId: "RESPONSE_3",
+          expectedLength: 4,
+          widthClass: "w-20",
+          createdAt: now + 2,
+        }
+      ],
+      multipleChoiceQuestions: [],
+      hottextQuestions: [],
+      correctAnswers: [],
+      caseSensitive: false,
+      correctFeedbackBlocks: [],
+      incorrectFeedbackBlocks: [],
+    });
+    setActiveTab('textentry');
+  }, []);
+
+  const loadHottextExample = useCallback(() => {
+    const now = Date.now();
+    setQuestion({
+      identifier: "hottext-example-1",
+      title: "Interactive Hottext with Rich HTML Content",
+      promptBlocks: [
+        {
+          id: "prompt_block_1",
+          type: "text",
+          content: "Programming is a <hottext>creative</hottext> process that involves <hottext><strong>problem-solving</strong></hottext> and <hottext><em>logical thinking</em></hottext>. Good programmers need <hottext>patience</hottext>, <hottext><u>attention to detail</u></hottext>, and <hottext><mark>continuous learning</mark></hottext>. <br/><br/>Select the <strong>three most important</strong> qualities:",
+          styles: {
+            fontSize: "18px",
+            fontFamily: "Arial, sans-serif",
+            color: "#2c3e50",
+            backgroundColor: "#f8f9fa",
+            padding: "16px",
+            margin: "8px",
+            borderRadius: "8px",
+            border: "1px solid #e9ecef",
+            textAlign: "left",
+          },
+          attributes: {},
+        },
+      ],
+      textEntryBoxes: [],
+      multipleChoiceQuestions: [],
+      hottextQuestions: [
+        {
+          id: "hottext_question_1",
+          responseId: "HOT_RESPONSE_1", 
+          placeholder: "[HOT_1]",
+          maxChoices: 3,
+          createdAt: now,
+          textContent: "Programming is a <hottext>creative</hottext> process that involves <hottext><strong>problem-solving</strong></hottext> and <hottext><em>logical thinking</em></hottext>. Good programmers need <hottext>patience</hottext>, <hottext><u>attention to detail</u></hottext>, and <hottext><mark>continuous learning</mark></hottext>.",
+          hottextItems: [
+            {
+              identifier: "H1",
+              content: {
+                type: "html",
+                value: "creative"
+              },
+              styles: {
+                backgroundColor: "#e3f2fd",
+                color: "#1976d2",
+                padding: "2px 6px",
+                borderRadius: "4px",
+                fontWeight: "bold"
+              },
+              position: { x: 0, y: 0 },
+            },
+            {
+              identifier: "H2",
+              content: {
+                type: "html", 
+                value: "<strong>problem-solving</strong>"
+              },
+              styles: {
+                backgroundColor: "#e8f5e8",
+                color: "#2e7d32", 
+                padding: "2px 6px",
+                borderRadius: "4px",
+                fontWeight: "bold"
+              },
+              position: { x: 0, y: 0 },
+            },
+            {
+              identifier: "H3",
+              content: {
+                type: "html",
+                value: "<em>logical thinking</em>"
+              },
+              styles: {
+                backgroundColor: "#fff3e0",
+                color: "#f57c00",
+                padding: "2px 6px", 
+                borderRadius: "4px",
+                fontWeight: "bold"
+              },
+              position: { x: 0, y: 0 },
+            },
+            {
+              identifier: "H4",
+              content: {
+                type: "text",
+                value: "patience"
+              },
+              styles: {
+                backgroundColor: "#fce4ec",
+                color: "#c2185b",
+                padding: "2px 6px", 
+                borderRadius: "4px",
+                fontWeight: "bold"
+              },
+              position: { x: 0, y: 0 },
+            },
+            {
+              identifier: "H5",
+              content: {
+                type: "html",
+                value: "<u>attention to detail</u>"
+              },
+              styles: {
+                backgroundColor: "#f3e5f5",
+                color: "#7b1fa2",
+                padding: "2px 6px", 
+                borderRadius: "4px",
+                fontWeight: "bold"
+              },
+              position: { x: 0, y: 0 },
+            },
+            {
+              identifier: "H6",
+              content: {
+                type: "html",
+                value: "<mark>continuous learning</mark>"
+              },
+              styles: {
+                backgroundColor: "#e0f2f1",
+                color: "#00695c",
+                padding: "2px 6px", 
+                borderRadius: "4px",
+                fontWeight: "bold"
+              },
+              position: { x: 0, y: 0 },
+            }
+          ],
+          correctAnswers: ["H1", "H2", "H3"],
+        }
+      ],
+      correctAnswers: [],
+      caseSensitive: false,
+      correctFeedbackBlocks: [],
+      incorrectFeedbackBlocks: [],
+    });
+    setActiveTab('hottext');
+  }, []);
+
+  const loadMixedExample = useCallback(() => {
+    const now = Date.now();
+    setQuestion({
+      identifier: "mixed-example-1",
+      title: "Complete Programming Knowledge Test with Rich HTML",
+      promptBlocks: [
+        {
+          id: "prompt_block_1",
+          type: "text",
+          content: "Programming is a <hottext>creative</hottext> process that involves <hottext><strong>problem-solving</strong></hottext> and <hottext><em>logical thinking</em></hottext>. <br/><br/>The most popular <u>version control system</u> is [1]. <br/><br/>Which programming paradigm emphasizes <strong>functions</strong> as first-class citizens? [MC_1] <br/><br/>The primary benefit of version control is [2].",
+          styles: {
+            fontSize: "18px",
+            fontFamily: "Arial, sans-serif",
+            color: "#2c3e50",
+            backgroundColor: "#f8f9fa",
+            padding: "16px",
+            margin: "8px",
+            borderRadius: "8px",
+            border: "1px solid #e9ecef",
+            textAlign: "left",
+          },
+          attributes: {},
+        },
+      ],
+      textEntryBoxes: [
+        {
+          id: "text_entry_1",
+          responseId: "RESPONSE_1",
+          expectedLength: 3,
+          widthClass: "w-24",
+          createdAt: now + 10,
+        },
+        {
+          id: "text_entry_2", 
+          responseId: "RESPONSE_2",
+          expectedLength: 20,
+          widthClass: "w-64",
+          createdAt: now + 30,
+        }
+      ],
+      multipleChoiceQuestions: [
+        {
+          id: "mc_question_1",
+          responseId: "MC_RESPONSE_1",
+          placeholder: "[MC_1]",
+          maxChoices: 1,
+          shuffle: false,
+          orientation: "vertical",
+          createdAt: now + 20,
+          options: [
+            {
+              identifier: "A",
+              contentBlocks: [
+                {
+                  id: "option_a_1",
+                  type: "text",
+                  content: "<span style='color: #dc2626;'>❌ Object-Oriented Programming</span>",
+                  styles: {},
+                  attributes: {},
+                }
+              ],
+              isCorrect: false,
+              inlineFeedbackBlocks: [],
+            },
+            {
+              identifier: "B", 
+              contentBlocks: [
+                {
+                  id: "option_b_1",
+                  type: "text",
+                  content: "<span style='color: #059669; font-weight: bold;'>✅ Functional Programming</span>",
+                  styles: {},
+                  attributes: {},
+                }
+              ],
+              isCorrect: true,
+              inlineFeedbackBlocks: [],
+            },
+            {
+              identifier: "C",
+              contentBlocks: [
+                {
+                  id: "option_c_1", 
+                  type: "text",
+                  content: "<span style='color: #dc2626;'>❌ Procedural Programming</span>",
+                  styles: {},
+                  attributes: {},
+                }
+              ],
+              isCorrect: false,
+              inlineFeedbackBlocks: [],
+            }
+          ],
+        }
+      ],
+      hottextQuestions: [
+        {
+          id: "hottext_question_1",
+          responseId: "HOT_RESPONSE_1", 
+          placeholder: "[HOT_1]",
+          maxChoices: 2,
+          createdAt: now,
+          textContent: "Programming is a <hottext>creative</hottext> process that involves <hottext><strong>problem-solving</strong></hottext> and <hottext><em>logical thinking</em></hottext>.",
+          hottextItems: [
+            {
+              identifier: "H1",
+              content: {
+                type: "text",
+                value: "creative"
+              },
+              styles: {
+                backgroundColor: "#e3f2fd",
+                color: "#1976d2",
+                padding: "2px 6px",
+                borderRadius: "4px",
+                fontWeight: "bold"
+              },
+              position: { x: 0, y: 0 },
+            },
+            {
+              identifier: "H2",
+              content: {
+                type: "html", 
+                value: "<strong>problem-solving</strong>"
+              },
+              styles: {
+                backgroundColor: "#e8f5e8",
+                color: "#2e7d32", 
+                padding: "2px 6px",
+                borderRadius: "4px",
+                fontWeight: "bold"
+              },
+              position: { x: 0, y: 0 },
+            },
+            {
+              identifier: "H3",
+              content: {
+                type: "html",
+                value: "<em>logical thinking</em>"
+              },
+              styles: {
+                backgroundColor: "#fff3e0",
+                color: "#f57c00",
+                padding: "2px 6px", 
+                borderRadius: "4px",
+                fontWeight: "bold"
+              },
+              position: { x: 0, y: 0 },
+            }
+          ],
+          correctAnswers: ["H1", "H2"],
+        }
+      ],
+      correctAnswers: [],
+      caseSensitive: false,
+      correctFeedbackBlocks: [],
+      incorrectFeedbackBlocks: [],
+    });
+    setActiveTab('preview');
+  }, []);
+
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <div className="flex items-center gap-4 mb-6">
@@ -1824,7 +3026,64 @@ export default function MixedQuestionBuilderPage() {
           <FileText className="w-4 h-4 mr-2" />
           Generate XML
         </Button>
+        <Button 
+          variant="outline" 
+          onClick={() => setXmlParserOpen(!xmlParserOpen)}
+          className="flex items-center gap-2"
+        >
+          <Upload className="w-4 h-4" />
+          Import QTI XML
+        </Button>
       </div>
+
+      {/* XML Parser Section - Collapsible */}
+      {xmlParserOpen && (
+        <Card className="mb-6 border-2 border-blue-200 bg-blue-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-blue-700">
+              <Upload className="w-5 h-5" />
+              Import Existing QTI XML
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="xml-input" className="text-sm font-medium mb-2 block">
+                Paste your QTI XML content here:
+              </Label>
+              <Textarea
+                id="xml-input"
+                value={pastedXML}
+                onChange={(e) => setPastedXML(e.target.value)}
+                placeholder="<?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?>&#10;<qti-assessment-item identifier=&quot;example&quot; title=&quot;Example&quot;>&#10;  <!-- Your QTI XML content here -->&#10;</qti-assessment-item>"
+                className="min-h-[200px] font-mono text-sm"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <Button 
+                onClick={() => parseQTIXML(pastedXML)}
+                disabled={!pastedXML.trim()}
+                className="flex items-center gap-2"
+              >
+                <Upload className="w-4 h-4" />
+                Parse & Import XML
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setPastedXML("");
+                  setXmlParserOpen(false);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+            <div className="text-xs text-gray-600 bg-white p-3 rounded border">
+              <strong>💡 Tip:</strong> Paste valid QTI XML with hottext, choice, or text-entry interactions. 
+              The parser will extract content and convert it to our builder format.
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Sidebar Navigation */}
@@ -1856,6 +3115,13 @@ export default function MixedQuestionBuilderPage() {
                 Multiple Choice ({question.multipleChoiceQuestions.length})
               </Button>
               <Button
+                variant={activeTab === 'hottext' ? 'default' : 'outline'}
+                className="w-full justify-start"
+                onClick={() => setActiveTab('hottext')}
+              >
+                Hottext ({question.hottextQuestions.length})
+              </Button>
+              <Button
                 variant={activeTab === 'feedbacks' ? 'default' : 'outline'}
                 className="w-full justify-start"
                 onClick={() => setActiveTab('feedbacks')}
@@ -1871,6 +3137,73 @@ export default function MixedQuestionBuilderPage() {
               </Button>
             </CardContent>
           </Card>
+          
+          {/* Examples Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Eye className="w-5 h-5" />
+                Quick Examples
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="text-sm text-gray-600 mb-3">
+                Try these interactive examples with rich HTML content:
+              </div>
+              
+              <Button
+                variant="outline"
+                className="w-full justify-start text-left h-auto p-3 hover:bg-blue-50"
+                onClick={loadChoiceExample}
+              >
+                <div className="flex flex-col items-start">
+                  <div className="font-medium text-blue-600">📊 Multiple Choice</div>
+                  <div className="text-xs text-gray-500 mt-1">Programming quiz with styled HTML options</div>
+                </div>
+              </Button>
+              
+              <Button
+                variant="outline"
+                className="w-full justify-start text-left h-auto p-3 hover:bg-green-50"
+                onClick={loadTextEntryExample}
+              >
+                <div className="flex flex-col items-start">
+                  <div className="font-medium text-green-600">✏️ Text Entry</div>
+                  <div className="text-xs text-gray-500 mt-1">Fill-in-the-blanks with HTML formatting</div>
+                </div>
+              </Button>
+              
+              <Button
+                variant="outline"
+                className="w-full justify-start text-left h-auto p-3 hover:bg-orange-50"
+                onClick={loadHottextExample}
+              >
+                <div className="flex flex-col items-start">
+                  <div className="font-medium text-orange-600">🖱️ Hottext Interactive</div>
+                  <div className="text-xs text-gray-500 mt-1">Clickable text with rich HTML styling</div>
+                </div>
+              </Button>
+              
+              <div className="border-t pt-3 mt-4">
+                <div className="text-sm font-medium text-gray-700 mb-2">🎯 Combined Example:</div>
+                
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left h-auto p-3 hover:bg-purple-50"
+                  onClick={loadMixedExample}
+                >
+                  <div className="flex flex-col items-start">
+                    <div className="font-medium text-purple-600">🔀 All Types Mixed</div>
+                    <div className="text-xs text-gray-500 mt-1">Hottext + Multiple Choice + Text Entry with HTML</div>
+                  </div>
+                </Button>
+              </div>
+              
+              <div className="text-xs text-gray-500 italic mt-3 p-2 bg-gradient-to-r from-blue-50 to-purple-50 rounded">
+                💡 <strong>HTML Features:</strong> Use &lt;strong&gt;, &lt;em&gt;, &lt;u&gt;, &lt;mark&gt;, colors, and more!
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Main Content Area */}
@@ -1878,11 +3211,13 @@ export default function MixedQuestionBuilderPage() {
           {/* Main content by tab */}
           {activeTab === 'question' && (
             <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Question Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
+              {/* Question Details - Collapsible */}
+              <details className="border border-gray-200 rounded-lg bg-white" open>
+                <summary className="p-4 bg-gray-50 cursor-pointer text-lg font-semibold text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+                  📝 Question Details
+                  <span className="text-sm text-gray-500 font-normal">(Click to expand/collapse)</span>
+                </summary>
+                <div className="p-6 space-y-4">
                   <div>
                     <Label htmlFor="identifier">Question ID</Label>
                     <Input
@@ -1922,27 +3257,40 @@ export default function MixedQuestionBuilderPage() {
                     />
                     <Label htmlFor="case-sensitive">Case sensitive</Label>
                   </div>
-                </CardContent>
-              </Card>
-              {/* Question Prompt and Preview */}
-              <ContentBlockEditor
-                blocks={question.promptBlocks}
-                onChange={(blocks) =>
-                  setQuestion((prev) => ({ ...prev, promptBlocks: blocks }))
-                }
-                title="Question Prompt"
-                allowTextBox={true}
-                onInsertTextBox={insertTextEntryBox}
-                allowMultipleChoice={true}
-                onInsertMultipleChoice={insertMultipleChoice}
-              />
-              <QuestionPreview
-                promptBlocks={question.promptBlocks}
-                textEntryBoxes={question.textEntryBoxes}
-                multipleChoiceQuestions={question.multipleChoiceQuestions}
-                correctAnswers={question.correctAnswers}
-                onAnswerChange={updateAnswer}
-              />
+                </div>
+              </details>
+              
+              {/* Question Prompt and Preview - Collapsible */}
+              <details className="border border-gray-200 rounded-lg bg-white" open>
+                <summary className="p-4 bg-gray-50 cursor-pointer text-lg font-semibold text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+                  ✏️ Question Content & Interactions
+                  <span className="text-sm text-gray-500 font-normal">(Click to expand/collapse)</span>
+                </summary>
+                <div className="p-6">
+                  <ContentBlockEditor
+                    blocks={question.promptBlocks}
+                    onChange={(blocks) =>
+                      setQuestion((prev) => ({ ...prev, promptBlocks: blocks }))
+                    }
+                    title="Question Prompt"
+                    allowTextBox={true}
+                    onInsertTextBox={insertTextEntryBox}
+                    allowMultipleChoice={true}
+                    onInsertMultipleChoice={insertMultipleChoice}
+                    allowHottext={true}
+                    onInsertHottext={insertHottext}
+                    autoDetectHottextTags={autoDetectHottextTags}
+                  />
+                  <QuestionPreview
+                    promptBlocks={question.promptBlocks}
+                    textEntryBoxes={question.textEntryBoxes}
+                    multipleChoiceQuestions={question.multipleChoiceQuestions}
+                    hottextQuestions={question.hottextQuestions}
+                    correctAnswers={question.correctAnswers}
+                    onAnswerChange={updateAnswer}
+                  />
+                </div>
+              </details>
             </div>
           )}
           {activeTab === 'feedbacks' && (
@@ -1999,12 +3347,25 @@ export default function MixedQuestionBuilderPage() {
               />
             </div>
           )}
+          {activeTab === 'hottext' && (
+            <div className="space-y-6">
+              <HottextConfiguration
+                hottextQuestions={question.hottextQuestions}
+                onUpdateQuestion={updateHottextQuestion}
+                onRemoveQuestion={removeHottextQuestion}
+                onAddItem={addHottextItem}
+                onUpdateItem={updateHottextItem}
+                onRemoveItem={removeHottextItem}
+              />
+            </div>
+          )}
           {activeTab === 'preview' && (
             <div className="space-y-6">
               <QuestionPreview
                 promptBlocks={question.promptBlocks}
                 textEntryBoxes={question.textEntryBoxes}
                 multipleChoiceQuestions={question.multipleChoiceQuestions}
+                hottextQuestions={question.hottextQuestions}
                 correctAnswers={question.correctAnswers}
                 onAnswerChange={updateAnswer}
               />

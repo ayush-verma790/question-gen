@@ -24,27 +24,37 @@ import {
   ChevronUp,
   MessageSquare,
   Settings,
+  Menu,
+  HelpCircle,
+  Layers,
 } from "lucide-react";
 import { ContentBlockEditor } from "@/components/content-block-editor";
 import { XMLViewer } from "@/components/xml-viewer";
 import { PreviewRenderer } from "@/components/preview-renderer";
 import { AdvancedColorPicker } from "@/components/advanced-color-picker";
+import { RichTextEditor } from "@/components/rich-text-editor";
 import { Toggle } from "@/components/ui/toggle";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ButtonSuggestions } from "@/components/button-suggestions";
 import type { HottextQuestion, HottextItem, ContentBlock } from "@/lib/types";
 import { generateHottextXML } from "@/lib/xml-generator";
-import { 
-  ButtonStylePresets, 
-  QuickStylePresets, 
-  buttonStylePresets, 
+import {
+  ButtonStylePresets,
+  QuickStylePresets,
+  buttonStylePresets,
   generateButtonHTML,
-  type ButtonStylePreset 
+  type ButtonStylePreset,
 } from "@/components/button-style-presets";
 
 function parseHottextXML(xmlString: string): HottextQuestion {
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+
+  // Check for parse errors
+  const parseError = xmlDoc.querySelector("parsererror");
+  if (parseError) {
+    throw new Error(`XML Parse Error: ${parseError.textContent}`);
+  }
 
   // Helper function to extract styles from element
   const extractStyles = (element: Element): Record<string, string> => {
@@ -63,6 +73,10 @@ function parseHottextXML(xmlString: string): HottextQuestion {
 
   // Get assessment item attributes
   const assessmentItem = xmlDoc.querySelector("qti-assessment-item");
+  if (!assessmentItem) {
+    throw new Error("No qti-assessment-item element found in XML");
+  }
+  
   const identifier =
     assessmentItem?.getAttribute("identifier") || `hottext-${Date.now()}`;
   const title = assessmentItem?.getAttribute("title") || "Hottext Question";
@@ -70,60 +84,108 @@ function parseHottextXML(xmlString: string): HottextQuestion {
   // Parse prompt blocks
   const promptBlocks: ContentBlock[] = [];
   const itemBody = xmlDoc.querySelector("qti-item-body");
-  const promptDiv = itemBody?.querySelector("div");
-
-  if (promptDiv) {
-    const promptText = promptDiv.childNodes[0]?.textContent?.trim() || "";
-    const promptImage = promptDiv.querySelector("img");
-
-    if (promptText) {
+  const hottextInteraction = xmlDoc.querySelector("qti-hottext-interaction");
+  
+  // Try to get prompt from qti-prompt element
+  const qtiPrompt = hottextInteraction?.querySelector("qti-prompt");
+  if (qtiPrompt) {
+    promptBlocks.push({
+      id: `prompt_text_${Date.now()}`,
+      type: "text",
+      content: `<p>${qtiPrompt.textContent || ""}</p>`,
+      styles: {},
+      attributes: {},
+    });
+  }
+  
+  // Also check for paragraph content within the interaction (like your XML structure)
+  const paragraphs = hottextInteraction?.querySelectorAll("p");
+  paragraphs?.forEach((p, index) => {
+    // Clone the paragraph and remove hottext elements to get the surrounding text
+    const pClone = p.cloneNode(true) as Element;
+    const hottextElements = pClone.querySelectorAll("qti-hottext");
+    hottextElements.forEach(ht => {
+      ht.replaceWith(document.createTextNode(`[${ht.getAttribute("identifier")}]`));
+    });
+    
+    const contextText = pClone.textContent || "";
+    if (contextText.trim()) {
       promptBlocks.push({
-        id: `prompt_text_${Date.now()}`,
-        type: "text",
-        content: `<p>${promptText}</p>`,
-        styles: extractStyles(promptDiv),
+        id: `prompt_context_${Date.now()}_${index}`,
+        type: "text", 
+        content: `<p>${contextText}</p>`,
+        styles: {},
         attributes: {},
       });
     }
+  });
+  
+  // Fallback to looking for div in item body if no prompt found yet
+  if (promptBlocks.length === 0) {
+    const promptDiv = itemBody?.querySelector("div");
+    if (promptDiv) {
+      const promptText = promptDiv.childNodes[0]?.textContent?.trim() || "";
+      const promptImage = promptDiv.querySelector("img");
 
-    if (promptImage) {
-      promptBlocks.push({
-        id: `prompt_image_${Date.now()}`,
-        type: "image",
-        content: promptImage.getAttribute("src") || "",
-        styles: {
-          width: promptImage.getAttribute("width") || "500px",
-          margin: "8px 0",
-        },
-        attributes: {
-          alt: promptImage.getAttribute("alt") || "Question Image",
-          width: promptImage.getAttribute("width") || "500",
-          height: promptImage.getAttribute("height") || "auto",
-        },
-      });
+      if (promptText) {
+        promptBlocks.push({
+          id: `prompt_text_${Date.now()}`,
+          type: "text",
+          content: `<p>${promptText}</p>`,
+          styles: extractStyles(promptDiv),
+          attributes: {},
+        });
+      }
+
+      if (promptImage) {
+        promptBlocks.push({
+          id: `prompt_image_${Date.now()}`,
+          type: "image",
+          content: promptImage.getAttribute("src") || "",
+          styles: {
+            width: promptImage.getAttribute("width") || "500px",
+            margin: "8px 0",
+          },
+          attributes: {
+            alt: promptImage.getAttribute("alt") || "Question Image",
+            width: promptImage.getAttribute("width") || "500",
+            height: promptImage.getAttribute("height") || "auto",
+          },
+        });
+      }
     }
   }
 
   // Parse hottext items
   const hottextItems: HottextItem[] = [];
-  const hottextInteraction = xmlDoc.querySelector("qti-hottext-interaction");
   const maxChoices = parseInt(
-    hottextInteraction?.getAttribute("max-choices") || "1"
+    hottextInteraction?.getAttribute("max-choices") || "0"
   );
 
   hottextInteraction
     ?.querySelectorAll("qti-hottext")
     .forEach((hottext, index) => {
       const identifier = hottext.getAttribute("identifier") || `HT${index + 1}`;
+      let content = "";
+      let styles: Record<string, string> = {};
+      
+      // Try to find span first, then fallback to direct text content
       const span = hottext.querySelector("span");
-
       if (span) {
-        const styles = extractStyles(span);
+        content = span.textContent || "";
+        styles = extractStyles(span);
+      } else {
+        // Direct text content (like in your XML)
+        content = hottext.textContent || "";
+        styles = extractStyles(hottext);
+      }
+
+      if (content.trim()) {
         hottextItems.push({
           identifier,
           content: {
             type: "text",
-            value: span.textContent || "",
+            value: content.trim(),
           },
           styles: {
             display: styles.display || "inline-block",
@@ -133,7 +195,12 @@ function parseHottextXML(xmlString: string): HottextQuestion {
             width: styles.width || "60px",
             height: styles.height || "60px",
             borderRadius: styles.borderRadius || "10px",
-            textAlign: (styles.textAlign === "center" || styles.textAlign === "left" || styles.textAlign === "right") ? styles.textAlign : "center",
+            textAlign:
+              styles.textAlign === "center" ||
+              styles.textAlign === "left" ||
+              styles.textAlign === "right"
+                ? styles.textAlign
+                : "center",
             lineHeight: styles.lineHeight || "60px",
             padding: styles.padding || "0px",
             margin: styles.margin || "10px",
@@ -215,16 +282,12 @@ function parseHottextXML(xmlString: string): HottextQuestion {
 
   // Extract global styles from item body
   const globalStyles = {
-    fontFamily: promptDiv?.getAttribute("style")?.includes("font-family")
-      ? extractStyles(promptDiv).fontFamily
-      : "'Canva Sans', sans-serif",
-    fontSize: promptDiv?.getAttribute("style")?.includes("font-size")
-      ? extractStyles(promptDiv).fontSize
-      : "22px",
-    backgroundColor: "#ffffff",
-    padding: "20px",
-    borderRadius: "8px",
-    boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+    fontFamily: "'Canva Sans', sans-serif",
+    fontSize: "22px",
+    backgroundColor: "",
+    padding: "",
+    borderRadius: "",
+    boxShadow: "",
   };
 
   return {
@@ -236,7 +299,7 @@ function parseHottextXML(xmlString: string): HottextQuestion {
     correctAnswers,
     correctFeedbackBlocks,
     incorrectFeedbackBlocks,
-    maxChoices,
+    maxChoices: maxChoices || hottextItems.length, // Default to allow all items if not specified
     globalStyles,
     customCSS: "",
   };
@@ -464,11 +527,11 @@ export default function HottextBuilderPage() {
     maxChoices: 1,
     globalStyles: {
       fontFamily: "Canva Sans",
-      fontSize: "22px",
-      backgroundColor: "#ffffff",
-      padding: "20px",
-      borderRadius: "8px",
-      boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+      fontSize: "",
+      backgroundColor: "",
+      padding: "",
+      borderRadius: "",
+      boxShadow: "",
     },
     customCSS: "",
   });
@@ -493,10 +556,24 @@ export default function HottextBuilderPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [importXML, setImportXML] = useState("");
   const [showStylePresets, setShowStylePresets] = useState(false);
-  const [selectedItemForStyle, setSelectedItemForStyle] = useState<string | null>(null);
+  const [selectedItemForStyle, setSelectedItemForStyle] = useState<
+    string | null
+  >(null);
   const [isReferenceExpanded, setIsReferenceExpanded] = useState(false);
   const [isImportExpanded, setIsImportExpanded] = useState(false);
   const [showRenderPreview, setShowRenderPreview] = useState(false);
+  const [richTextContent, setRichTextContent] = useState("");
+
+  // Side navigation state - only one section visible at a time
+  const [activeSection, setActiveSection] = useState<
+    "question" | "hottext" | "feedback" | "preview"
+  >("question");
+
+  const switchToSection = (
+    section: "question" | "hottext" | "feedback" | "preview"
+  ) => {
+    setActiveSection(section);
+  };
 
   useEffect(() => {
     if (
@@ -534,13 +611,26 @@ export default function HottextBuilderPage() {
   const handleImportXML = () => {
     if (!importXML.trim()) return;
 
+    setIsImporting(true);
+    
     try {
+      console.log("Attempting to parse XML...");
       const parsedQuestion = parseHottextXML(importXML);
+      console.log("Successfully parsed:", parsedQuestion);
+      
       setQuestion(parsedQuestion);
       setImportXML("");
+      
+      alert(`XML imported successfully! 
+      - Title: ${parsedQuestion.title}
+      - Hottext items: ${parsedQuestion.hottextItems.length}
+      - Correct answers: ${parsedQuestion.correctAnswers.length}
+      - Prompt blocks: ${parsedQuestion.promptBlocks.length}`);
     } catch (error) {
       console.error("Error parsing XML:", error);
-      alert("Invalid XML format. Please check your XML and try again.");
+      alert(`Invalid XML format. Error: ${error instanceof Error ? error.message : 'Unknown error'}. Please check your XML and try again.`);
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -621,6 +711,42 @@ export default function HottextBuilderPage() {
     setSelectedImage("");
     setSelectedHTML("");
     setTextFormat({ bold: false, italic: false, underline: false });
+  };
+
+  const addRichTextHottext = () => {
+    if (!richTextContent.trim()) return;
+
+    const newItem: HottextItem = {
+      identifier: `HT${question.hottextItems.length + 1}`,
+      content: {
+        type: "html",
+        value: richTextContent,
+      },
+      styles: {
+        display: "inline-block",
+        backgroundColor: "#e3f2fd",
+        color: "#1976d2",
+        fontSize: "16px",
+        width: "auto",
+        height: "auto",
+        borderRadius: "6px",
+        textAlign: "center",
+        lineHeight: "1.5",
+        padding: "8px 12px",
+        margin: "4px",
+        border: "2px solid #1976d2",
+        boxShadow: "0 2px 8px rgba(25, 118, 210, 0.2)",
+        transition: "all 0.3s ease",
+      },
+      position: { x: 0, y: 0 },
+    };
+
+    setQuestion((prev) => ({
+      ...prev,
+      hottextItems: [...prev.hottextItems, newItem],
+    }));
+
+    setRichTextContent("");
   };
 
   const removeHottextItem = (identifier: string) => {
@@ -735,12 +861,15 @@ export default function HottextBuilderPage() {
             style={{
               maxWidth: item.styles.maxWidth || "200px",
               maxHeight: item.styles.maxHeight || "200px",
-              objectFit: (item.styles.objectFit || "contain") as React.CSSProperties['objectFit'],
+              objectFit: (item.styles.objectFit ||
+                "contain") as React.CSSProperties["objectFit"],
             }}
           />
         );
       case "html":
-        return <div dangerouslySetInnerHTML={{ __html: item.content.value }} />;
+        return (
+          <span dangerouslySetInnerHTML={{ __html: item.content.value }} />
+        );
       default:
         return <span>{item.content.value}</span>;
     }
@@ -957,12 +1086,15 @@ export default function HottextBuilderPage() {
             return (
               <div
                 key={item.identifier}
-                style={{ 
-                  display: "inline-block", 
+                style={{
+                  display: "inline-block",
                   ...item.styles,
-                  textAlign: item.styles.textAlign as React.CSSProperties['textAlign'],
-                  textTransform: item.styles.textTransform as React.CSSProperties['textTransform'],
-                  objectFit: item.styles.objectFit as React.CSSProperties['objectFit'],
+                  textAlign: item.styles
+                    .textAlign as React.CSSProperties["textAlign"],
+                  textTransform: item.styles
+                    .textTransform as React.CSSProperties["textTransform"],
+                  objectFit: item.styles
+                    .objectFit as React.CSSProperties["objectFit"],
                 }}
                 className="hottext-item"
                 data-identifier={item.identifier}
@@ -1089,421 +1221,537 @@ export default function HottextBuilderPage() {
           </p>
         </div>
 
-        <div className="w-full space-y-6">
-            <Card>
-              <CardHeader 
-                className="cursor-pointer"
-                onClick={() => setIsImportExpanded(!isImportExpanded)}
-              >
-                <CardTitle className="flex items-center justify-between">
-                  <span>Import QTI XML</span>
-                  {isImportExpanded ? (
-                    <ChevronUp className="w-5 h-5" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5" />
-                  )}
-                </CardTitle>
-                <p className="text-sm text-gray-600 mt-1">
-                  {isImportExpanded 
-                    ? "Click to collapse XML import options" 
-                    : "Click to expand and import existing QTI XML files"
-                  }
-                </p>
-              </CardHeader>
-              {isImportExpanded && (
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="import-xml">Paste your QTI XML here</Label>
-                    <textarea
-                      id="import-xml"
-                      value={importXML}
-                      onChange={(e) => setImportXML(e.target.value)}
-                      placeholder="Paste your QTI XML content here..."
-                      className="w-full h-40 p-2 border rounded-md font-mono text-sm"
-                    />
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <Button
-                      onClick={handleImportXML}
-                      disabled={!importXML.trim() || isImporting}
-                    >
-                      <Upload className="w-4 h-4 mr-2" />
-                      {isImporting ? "Importing..." : "Import XML"}
-                    </Button>
-                    <Label htmlFor="xml-upload" className="cursor-pointer">
-                      <Button variant="outline" disabled={isImporting}>
-                        <Upload className="w-4 h-4 mr-2" />
-                        {isImporting ? "Importing..." : "Upload XML File"}
-                      </Button>
-                    </Label>
-                    <Input
-                      id="xml-upload"
-                      type="file"
-                      accept=".xml"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                      disabled={isImporting}
-                    />
-                  </div>
-                </CardContent>
-              )}
-            </Card>
+        {/* Section Toggle Buttons - Left aligned */}
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Question Details</CardTitle>
-              </CardHeader>
+        <div className="mb-6 flex gap-2">
+          <Button
+            variant={activeSection === "question" ? "default" : "outline"}
+            size="sm"
+            onClick={() => switchToSection("question")}
+          >
+            <Settings className="w-4 h-4 mr-2" />
+            Question Setup
+          </Button>
+
+          <Button
+            variant={activeSection === "hottext" ? "default" : "outline"}
+            size="sm"
+            onClick={() => switchToSection("hottext")}
+          >
+            <Layers className="w-4 h-4 mr-2" />
+            Hottext Items
+          </Button>
+
+          <Button
+            variant={activeSection === "feedback" ? "default" : "outline"}
+            size="sm"
+            onClick={() => switchToSection("feedback")}
+          >
+            <MessageSquare className="w-4 h-4 mr-2" />
+            Incorrect Feedback
+          </Button>
+
+          <Button
+            variant={activeSection === "preview" ? "default" : "outline"}
+            size="sm"
+            onClick={() => switchToSection("preview")}
+          >
+            <Eye className="w-4 h-4 mr-2" />
+            Preview
+          </Button>
+        </div>
+        <div className="w-full space-y-6">
+          <Card>
+            <CardHeader
+              className="cursor-pointer"
+              onClick={() => setIsImportExpanded(!isImportExpanded)}
+            >
+              <CardTitle className="flex items-center justify-between">
+                <span>Import QTI XML</span>
+                {isImportExpanded ? (
+                  <ChevronUp className="w-5 h-5" />
+                ) : (
+                  <ChevronDown className="w-5 h-5" />
+                )}
+              </CardTitle>
+              <p className="text-sm text-gray-600 mt-1">
+                {isImportExpanded
+                  ? "Click to collapse XML import options"
+                  : "Click to expand and import existing QTI XML files"}
+              </p>
+            </CardHeader>
+            {isImportExpanded && (
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="identifier">Question ID</Label>
-                  <Input
-                    id="identifier"
-                    value={question.identifier}
-                    onChange={(e) =>
-                      setQuestion((prev) => ({
-                        ...prev,
-                        identifier: e.target.value,
-                      }))
-                    }
-                    placeholder="e.g., hottext-question-1"
+                  <Label htmlFor="import-xml">Paste your QTI XML here</Label>
+                  <textarea
+                    id="import-xml"
+                    value={importXML}
+                    onChange={(e) => setImportXML(e.target.value)}
+                    placeholder="Paste your QTI XML content here..."
+                    className="w-full h-40 p-2 border rounded-md font-mono text-sm"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="title">Title</Label>
+                <div className="flex items-center gap-4">
+                  <Button
+                    onClick={handleImportXML}
+                    disabled={!importXML.trim() || isImporting}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    {isImporting ? "Importing..." : "Import XML"}
+                  </Button>
+                  <Label htmlFor="xml-upload" className="cursor-pointer">
+                    <Button variant="outline" disabled={isImporting}>
+                      <Upload className="w-4 h-4 mr-2" />
+                      {isImporting ? "Importing..." : "Upload XML File"}
+                    </Button>
+                  </Label>
                   <Input
-                    id="title"
-                    value={question.title}
-                    onChange={(e) =>
-                      setQuestion((prev) => ({
-                        ...prev,
-                        title: e.target.value,
-                      }))
-                    }
-                    placeholder="Question title"
-                  />
-                </div>
-                <div>
-                  <Label>Max Choices</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={question.maxChoices}
-                    onChange={(e) =>
-                      setQuestion((prev) => ({
-                        ...prev,
-                        maxChoices: Number.parseInt(e.target.value) || 1,
-                      }))
-                    }
+                    id="xml-upload"
+                    type="file"
+                    accept=".xml"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    disabled={isImporting}
                   />
                 </div>
               </CardContent>
-            </Card>
+            )}
+          </Card>
 
-            <ContentBlockEditor
-              blocks={question.promptBlocks}
-              onChange={(blocks) =>
-                setQuestion((prev) => ({ ...prev, promptBlocks: blocks }))
-              }
-              title="Question Prompt"
-            />
+          {activeSection === "question" && (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Question Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="identifier">Question ID</Label>
+                    <Input
+                      id="identifier"
+                      value={question.identifier}
+                      onChange={(e) =>
+                        setQuestion((prev) => ({
+                          ...prev,
+                          identifier: e.target.value,
+                        }))
+                      }
+                      placeholder="e.g., hottext-question-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="title">Title</Label>
+                    <Input
+                      id="title"
+                      value={question.title}
+                      onChange={(e) =>
+                        setQuestion((prev) => ({
+                          ...prev,
+                          title: e.target.value,
+                        }))
+                      }
+                      placeholder="Question title"
+                    />
+                  </div>
+                  <div>
+                    <Label>Max Choices</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={question.maxChoices}
+                      onChange={(e) =>
+                        setQuestion((prev) => ({
+                          ...prev,
+                          maxChoices: Number.parseInt(e.target.value) || 1,
+                        }))
+                      }
+                    />
+                  </div>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Hottext Items</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Tabs
-                  value={activeTab}
-                  onValueChange={(value) => setActiveTab(value as any)}
-                >
-                  <TabsList className="grid grid-cols-3 w-full">
-                    <TabsTrigger value="text">
-                      <FileText className="w-4 h-4 mr-2" />
-                      Text
-                    </TabsTrigger>
-                    <TabsTrigger value="image">
-                      <ImageIcon className="w-4 h-4 mr-2" />
-                      Image
-                    </TabsTrigger>
-                    <TabsTrigger value="html">
-                      <Video className="w-4 h-4 mr-2" />
-                      HTML
-                    </TabsTrigger>
-                  </TabsList>
+              <ContentBlockEditor
+                blocks={question.promptBlocks}
+                onChange={(blocks) =>
+                  setQuestion((prev) => ({ ...prev, promptBlocks: blocks }))
+                }
+                title="Question Prompt"
+              />
+            </>
+          )}
 
-                  <TabsContent value="text" className="space-y-2">
-                    <div className="flex flex-col gap-2">
-                      <div className="flex gap-2">
-                        <Input
-                          value={selectedText}
-                          onChange={(e) => setSelectedText(e.target.value)}
-                          placeholder="Enter text content"
+          {activeSection === "hottext" && (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Hottext Items</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Tabs
+                    value={activeTab}
+                    onValueChange={(value) => setActiveTab(value as any)}
+                  >
+                    <TabsList className="grid grid-cols-3 w-full">
+                      <TabsTrigger value="text">
+                        <FileText className="w-4 h-4 mr-2" />
+                        Text
+                      </TabsTrigger>
+                      <TabsTrigger value="image">
+                        <ImageIcon className="w-4 h-4 mr-2" />
+                        Image
+                      </TabsTrigger>
+                      <TabsTrigger value="html">
+                        <Video className="w-4 h-4 mr-2" />
+                        HTML
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="text" className="space-y-4">
+                      {/* Rich Text Editor Section */}
+                      <div className="border rounded-lg p-4 bg-blue-50">
+                        <Label className="text-sm font-medium text-blue-900 mb-2 block">
+                          Rich Text Editor (Recommended)
+                        </Label>
+                        <p className="text-xs text-blue-700 mb-3">
+                          Create formatted text with bold, italic, colors, and more. Perfect for complex hottext items.
+                        </p>
+                        <RichTextEditor
+                          value={richTextContent}
+                          onChange={setRichTextContent}
+                          placeholder="Type and format your hottext content here..."
+                          className="min-h-[100px]"
                         />
                         <Button
-                          onClick={addHottextItem}
-                          disabled={!selectedText.trim()}
+                          onClick={addRichTextHottext}
+                          disabled={!richTextContent.trim()}
+                          className="w-full mt-3"
                         >
-                          <Plus className="w-4 h-4" />
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Rich Text Hottext
                         </Button>
                       </div>
-                      <div className="flex gap-1">
-                        <Toggle
-                          pressed={textFormat.bold}
-                          onPressedChange={() => toggleTextFormat("bold")}
-                          size="sm"
-                          aria-label="Toggle bold"
-                        >
-                          <Bold className="h-4 w-4" />
-                        </Toggle>
-                        <Toggle
-                          pressed={textFormat.italic}
-                          onPressedChange={() => toggleTextFormat("italic")}
-                          size="sm"
-                          aria-label="Toggle italic"
-                        >
-                          <Italic className="h-4 w-4" />
-                        </Toggle>
-                        <Toggle
-                          pressed={textFormat.underline}
-                          onPressedChange={() => toggleTextFormat("underline")}
-                          size="sm"
-                          aria-label="Toggle underline"
-                        >
-                          <Underline className="h-4 w-4" />
-                        </Toggle>
-                      </div>
-                      <div className="mt-2">
-                        <p className="text-sm text-gray-600 mb-2">Quick Style Presets:</p>
-                        <QuickStylePresets
-                          onApplyPreset={(preset) => {
-                            if (selectedText.trim()) {
-                              addHottextItem(preset.styles);
+
+                      {/* Simple Text Input Section */}
+                      <div className="border rounded-lg p-4">
+                        <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                          Simple Text Input
+                        </Label>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex gap-2">
+                            <Input
+                              value={selectedText}
+                              onChange={(e) => setSelectedText(e.target.value)}
+                              placeholder="Enter simple text content"
+                            />
+                            <Button
+                              onClick={addHottextItem}
+                              disabled={!selectedText.trim()}
+                            >
+                              <Plus className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex gap-1">
+                          <Toggle
+                            pressed={textFormat.bold}
+                            onPressedChange={() => toggleTextFormat("bold")}
+                            size="sm"
+                            aria-label="Toggle bold"
+                          >
+                            <Bold className="h-4 w-4" />
+                          </Toggle>
+                          <Toggle
+                            pressed={textFormat.italic}
+                            onPressedChange={() => toggleTextFormat("italic")}
+                            size="sm"
+                            aria-label="Toggle italic"
+                          >
+                            <Italic className="h-4 w-4" />
+                          </Toggle>
+                          <Toggle
+                            pressed={textFormat.underline}
+                            onPressedChange={() =>
+                              toggleTextFormat("underline")
                             }
-                          }}
-                          maxItems={6}
-                          showOnlyCategory="basic"
-                        />
+                            size="sm"
+                            aria-label="Toggle underline"
+                          >
+                            <Underline className="h-4 w-4" />
+                          </Toggle>
+                        </div>
                         <div className="mt-2">
+                          <p className="text-sm text-gray-600 mb-2">
+                            Quick Style Presets:
+                          </p>
                           <QuickStylePresets
                             onApplyPreset={(preset) => {
                               if (selectedText.trim()) {
                                 addHottextItem(preset.styles);
                               }
                             }}
-                            maxItems={4}
-                            showOnlyCategory="gradient"
+                            maxItems={6}
+                            showOnlyCategory="basic"
                           />
+                          <div className="mt-2">
+                            <QuickStylePresets
+                              onApplyPreset={(preset) => {
+                                if (selectedText.trim()) {
+                                  addHottextItem(preset.styles);
+                                }
+                              }}
+                              maxItems={4}
+                              showOnlyCategory="gradient"
+                            />
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Enter text above, then click a style to create a
+                            hottext item with that style.
+                          </p>
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Enter text above, then click a style to create a hottext item with that style.
-                        </p>
                       </div>
-                    </div>
-                  </TabsContent>
+                    </TabsContent>
 
-                  <TabsContent value="image" className="space-y-2">
-                    <div className="flex gap-2">
-                      <Input
-                        value={selectedImage}
-                        onChange={(e) => setSelectedImage(e.target.value)}
-                        placeholder="Enter image URL"
-                      />
-                      <Button
-                        onClick={addHottextItem}
-                        disabled={!selectedImage.trim()}
-                      >
-                        <Plus className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </TabsContent>
+                    <TabsContent value="image" className="space-y-2">
+                      <div className="flex gap-2">
+                        <Input
+                          value={selectedImage}
+                          onChange={(e) => setSelectedImage(e.target.value)}
+                          placeholder="Enter image URL"
+                        />
+                        <Button
+                          onClick={addHottextItem}
+                          disabled={!selectedImage.trim()}
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </TabsContent>
 
-                  <TabsContent value="html" className="space-y-2">
-                    <div className="flex gap-2">
-                      <Input
-                        value={selectedHTML}
-                        onChange={(e) => setSelectedHTML(e.target.value)}
-                        placeholder="Enter HTML content"
-                      />
-                      <Button
-                        onClick={addHottextItem}
-                        disabled={!selectedHTML.trim()}
-                      >
-                        <Plus className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </TabsContent>
-                </Tabs>
+                    <TabsContent value="html" className="space-y-2">
+                      <div className="flex gap-2">
+                        <Input
+                          value={selectedHTML}
+                          onChange={(e) => setSelectedHTML(e.target.value)}
+                          placeholder="Enter HTML content"
+                        />
+                        <Button
+                          onClick={addHottextItem}
+                          disabled={!selectedHTML.trim()}
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
 
-                <div className="space-y-4">
-                  {question.hottextItems.map((item) => (
-                    <Card key={item.identifier} className="p-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant={
-                              question.correctAnswers.includes(item.identifier)
-                                ? "default"
-                                : "secondary"
-                            }
-                            className="cursor-pointer"
-                            onClick={() => toggleCorrectAnswer(item.identifier)}
-                          >
+                  <div className="space-y-4">
+                    {question.hottextItems.map((item) => (
+                      <Card key={item.identifier} className="p-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant={
+                                question.correctAnswers.includes(
+                                  item.identifier
+                                )
+                                  ? "default"
+                                  : "secondary"
+                              }
+                              className={`
+                                cursor-pointer px-3 py-1 text-sm font-medium transition-all duration-200
+                                ${question.correctAnswers.includes(item.identifier) 
+                                  ? 'bg-green-600 text-white shadow-lg border-2 border-green-500' 
+                                  : 'bg-gray-400 text-white hover:bg-gray-500 border-2 border-gray-300'
+                                }
+                              `}
+                              onClick={() =>
+                                toggleCorrectAnswer(item.identifier)
+                              }
+                            >
+                              {question.correctAnswers.includes(item.identifier) 
+                                ? '✓ CORRECT ANSWER' 
+                                : 'Click to mark as correct'
+                              }
+                            </Badge>
+                            <span className="text-sm font-medium text-gray-600">
+                              ID: {item.identifier}
+                            </span>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedItemForStyle(item.identifier);
+                                setShowStylePresets(true);
+                              }}
+                              title="Apply Style Preset"
+                            >
+                              <Palette className="w-4 h-4" />
+                            </Button>
                             {editingHottextId === item.identifier ? (
-                              <>
-                                <Tabs
-                                  value={editingHottextType}
-                                  onValueChange={(value) =>
-                                    setEditingHottextType(value as any)
-                                  }
-                                  className="w-full"
-                                >
-                                  <TabsList className="grid grid-cols-3 w-full mb-2">
-                                    <TabsTrigger value="text">
-                                      <FileText className="w-4 h-4" />
-                                    </TabsTrigger>
-                                    <TabsTrigger value="image">
-                                      <ImageIcon className="w-4 h-4" />
-                                    </TabsTrigger>
-                                    <TabsTrigger value="html">
-                                      <Video className="w-4 h-4" />
-                                    </TabsTrigger>
-                                  </TabsList>
-                                </Tabs>
-                                {editingHottextType === "text" && (
-                                  <div className="flex flex-col gap-2">
-                                    <div className="flex gap-1">
-                                      <Toggle
-                                        pressed={textFormat.bold}
-                                        onPressedChange={() =>
-                                          toggleTextFormat("bold")
-                                        }
-                                        size="sm"
-                                        aria-label="Toggle bold"
-                                      >
-                                        <Bold className="h-4 w-4" />
-                                      </Toggle>
-                                      <Toggle
-                                        pressed={textFormat.italic}
-                                        onPressedChange={() =>
-                                          toggleTextFormat("italic")
-                                        }
-                                        size="sm"
-                                        aria-label="Toggle italic"
-                                      >
-                                        <Italic className="h-4 w-4" />
-                                      </Toggle>
-                                      <Toggle
-                                        pressed={textFormat.underline}
-                                        onPressedChange={() =>
-                                          toggleTextFormat("underline")
-                                        }
-                                        size="sm"
-                                        aria-label="Toggle underline"
-                                      >
-                                        <Underline className="h-4 w-4" />
-                                      </Toggle>
-                                    </div>
-                                    <Input
-                                      value={editingHottextContent}
-                                      onChange={(e) =>
-                                        setEditingHottextContent(e.target.value)
-                                      }
-                                      className="h-6 px-2 text-sm"
-                                    />
-                                  </div>
-                                )}
-                                {editingHottextType === "image" && (
-                                  <Input
-                                    value={editingHottextContent}
-                                    onChange={(e) =>
-                                      setEditingHottextContent(e.target.value)
-                                    }
-                                    className="h-6 px-2 text-sm"
-                                    placeholder="Enter image URL"
-                                  />
-                                )}
-                                {editingHottextType === "html" && (
-                                  <Input
-                                    value={editingHottextContent}
-                                    onChange={(e) =>
-                                      setEditingHottextContent(e.target.value)
-                                    }
-                                    className="h-6 px-2 text-sm"
-                                    placeholder="Enter HTML content"
-                                  />
-                                )}
-                              </>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => saveHottextEdit(item.identifier)}
+                              >
+                                Save
+                              </Button>
                             ) : (
-                              renderHottextContent(item)
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => startEditingHottext(item)}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
                             )}
-                          </Badge>
-                          <span className="text-sm text-gray-500">
-                            ({item.identifier})
-                          </span>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedItemForStyle(item.identifier);
-                              setShowStylePresets(true);
-                            }}
-                            title="Apply Style Preset"
-                          >
-                            <Palette className="w-4 h-4" />
-                          </Button>
-                          {editingHottextId === item.identifier ? (
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => saveHottextEdit(item.identifier)}
+                              onClick={() => removeHottextItem(item.identifier)}
                             >
-                              Save
+                              <Trash2 className="w-4 h-4" />
                             </Button>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => startEditingHottext(item)}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeHottextItem(item.identifier)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        {renderStyleControls(item)}
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-                <p className="text-sm text-gray-600">
-                  Click on badges to mark as correct answers
-                </p>
-              </CardContent>
-            </Card>
+                        {editingHottextId === item.identifier ? (
+                          <>
+                            <Tabs
+                              value={editingHottextType}
+                              onValueChange={(value) =>
+                                setEditingHottextType(value as any)
+                              }
+                              className="w-full"
+                            >
+                              <TabsList className="grid grid-cols-3 w-full mb-2">
+                                <TabsTrigger value="text">
+                                  <FileText className="w-4 h-4" />
+                                </TabsTrigger>
+                                <TabsTrigger value="image">
+                                  <ImageIcon className="w-4 h-4" />
+                                </TabsTrigger>
+                                <TabsTrigger value="html">
+                                  <Video className="w-4 h-4" />
+                                </TabsTrigger>
+                              </TabsList>
+                            </Tabs>
+                            {editingHottextType === "text" && (
+                              <div className="flex flex-col gap-2">
+                                <div className="flex gap-1">
+                                  <Toggle
+                                    pressed={textFormat.bold}
+                                    onPressedChange={() =>
+                                      toggleTextFormat("bold")
+                                    }
+                                    size="sm"
+                                    aria-label="Toggle bold"
+                                  >
+                                    <Bold className="h-4 w-4" />
+                                  </Toggle>
+                                  <Toggle
+                                    pressed={textFormat.italic}
+                                    onPressedChange={() =>
+                                      toggleTextFormat("italic")
+                                    }
+                                    size="sm"
+                                    aria-label="Toggle italic"
+                                  >
+                                    <Italic className="h-4 w-4" />
+                                  </Toggle>
+                                  <Toggle
+                                    pressed={textFormat.underline}
+                                    onPressedChange={() =>
+                                      toggleTextFormat("underline")
+                                    }
+                                    size="sm"
+                                    aria-label="Toggle underline"
+                                  >
+                                    <Underline className="h-4 w-4" />
+                                  </Toggle>
+                                </div>
+                                <Input
+                                  value={editingHottextContent}
+                                  onChange={(e) =>
+                                    setEditingHottextContent(
+                                      e.target.value
+                                    )
+                                  }
+                                  className="h-6 px-2 text-sm"
+                                />
+                              </div>
+                            )}
+                            {editingHottextType === "image" && (
+                              <Input
+                                value={editingHottextContent}
+                                onChange={(e) =>
+                                  setEditingHottextContent(e.target.value)
+                                }
+                                className="h-6 px-2 text-sm"
+                                placeholder="Enter image URL"
+                              />
+                            )}
+                            {editingHottextType === "html" && (
+                              <Input
+                                value={editingHottextContent}
+                                onChange={(e) =>
+                                  setEditingHottextContent(e.target.value)
+                                }
+                                className="h-6 px-2 text-sm"
+                                placeholder="Enter HTML content"
+                              />
+                            )}
+                          </>
+                        ) : (
+                          <div className="p-2 bg-gray-50 rounded border">
+                            {renderHottextContent(item)}
+                          </div>
+                        )}
 
-            {/* Style Preset Modal */}
-            {showStylePresets && selectedItemForStyle && (
-              <ButtonStylePresets
-                onApplyPreset={(preset) => applyStylePreset(selectedItemForStyle, preset)}
-                onClose={() => {
-                  setShowStylePresets(false);
-                  setSelectedItemForStyle(null);
-                }}
-                title="Choose Button Style Preset"
-              />
-            )}
+                        <div className="grid grid-cols-2 gap-3 mt-4">
+                          {renderStyleControls(item)}
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Click on badges to mark as correct answers
+                  </p>
+                </CardContent>
+              </Card>
 
+              {/* Style Preset Modal */}
+              {showStylePresets && selectedItemForStyle && (
+                <ButtonStylePresets
+                  onApplyPreset={(preset) =>
+                    applyStylePreset(selectedItemForStyle, preset)
+                  }
+                  onClose={() => {
+                    setShowStylePresets(false);
+                    setSelectedItemForStyle(null);
+                  }}
+                  title="Choose Button Style Preset"
+                />
+              )}
+            </>
+          )}
+
+          {activeSection === "feedback" && (
+            <ContentBlockEditor
+              blocks={question.incorrectFeedbackBlocks}
+              onChange={(blocks) =>
+                setQuestion((prev) => ({
+                  ...prev,
+                  incorrectFeedbackBlocks: blocks,
+                }))
+              }
+              title="Incorrect Answer Feedback"
+            />
+          )}
+
+          {activeSection === "preview" && (
             <Card>
               <CardHeader>
                 <CardTitle>Global Styles</CardTitle>
@@ -1588,8 +1836,9 @@ export default function HottextBuilderPage() {
                 </div>
               </CardContent>
             </Card>
+          )}
 
-            {/* <ContentBlockEditor
+          {/* <ContentBlockEditor
               blocks={question.correctFeedbackBlocks}
               onChange={(blocks) =>
                 setQuestion((prev) => ({
@@ -1600,6 +1849,7 @@ export default function HottextBuilderPage() {
               title="Correct Answer Feedback"
             /> */}
 
+          {activeSection === "feedback" && (
             <ContentBlockEditor
               blocks={question.incorrectFeedbackBlocks}
               onChange={(blocks) =>
@@ -1610,151 +1860,152 @@ export default function HottextBuilderPage() {
               }
               title="Incorrect Answer Feedback"
             />
+          )}
 
-           <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Eye className="w-5 h-5" />
-                  Preview
-                </CardTitle>
-             
-              </CardHeader>
-              <CardContent>
-                {question.promptBlocks.length > 0  ? (
-                  <div className="space-y-4">
-                    {renderPreview()}
-                    <div className="text-sm text-gray-600">
-                      <p>
-                        <strong>Correct answers:</strong>{" "}
-                        {question.correctAnswers.join(", ") || "None selected"}
-                      </p>
-                      <p>
-                        <strong>Max choices:</strong> {question.maxChoices}
-                      </p>
+          {activeSection === "preview" && (
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Eye className="w-5 h-5" />
+                    Preview
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {question.promptBlocks.length > 0 ? (
+                    <div className="space-y-4">
+                      {renderPreview()}
+                      <div className="text-sm text-gray-600">
+                        <p>
+                          <strong>Correct answers:</strong>{" "}
+                          {question.correctAnswers.join(", ") ||
+                            "None selected"}
+                        </p>
+                        <p>
+                          <strong>Max choices:</strong> {question.maxChoices}
+                        </p>
+                      </div>
+
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setShowFeedback(true);
+                            setIsCorrectAnswer(true);
+                          }}
+                        >
+                          Show Correct Feedback
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setShowFeedback(true);
+                            setIsCorrectAnswer(false);
+                          }}
+                        >
+                          Show Incorrect Feedback
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => setShowFeedback(false)}
+                        >
+                          Hide Feedback
+                        </Button>
+                      </div>
+
+                      {renderFeedbackPreview()}
                     </div>
+                  ) : (
+                    <p className="text-gray-500">
+                      Add content and hottext items to see preview
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
 
-                    <div className="flex gap-2 mt-4">
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setShowFeedback(true);
-                          setIsCorrectAnswer(true);
-                        }}
-                      >
-                        Show Correct Feedback
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setShowFeedback(true);
-                          setIsCorrectAnswer(false);
-                        }}
-                      >
-                        Show Incorrect Feedback
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        onClick={() => setShowFeedback(false)}
-                      >
-                        Hide Feedback
-                      </Button>
-                    </div>
-
-                    {renderFeedbackPreview()}
-                  </div>
-                ) : (
-                  <p className="text-gray-500">
-                    Add content and hottext items to see preview
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-
-         
               <PreviewRenderer
                 xmlContent={generatedXML}
                 questionType="hottext"
                 disabled={!generatedXML}
               />
-          
 
-            {generatedXML && (
-              <XMLViewer
-                xml={generatedXML}
-                filename={`${question.identifier || "hottext-question"}.xml`}
-              />
-            )}
-
-            {/* Collapsible Style Presets Reference Card - Moved to bottom */}
-            <Card>
-              <CardHeader 
-                className="cursor-pointer"
-                onClick={() => setIsReferenceExpanded(!isReferenceExpanded)}
-              >
-                <CardTitle className="flex items-center justify-between">
-                  <span>Button Style Presets Reference</span>
-                  {isReferenceExpanded ? (
-                    <ChevronUp className="w-5 h-5" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5" />
-                  )}
-                </CardTitle>
-                <p className="text-sm text-gray-600 mt-1">
-                  {isReferenceExpanded 
-                    ? "Click to collapse button style reference" 
-                    : "Click to expand and copy HTML button styles for feedback blocks"
-                  }
-                </p>
-              </CardHeader>
-              {isReferenceExpanded && (
-                <CardContent>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Copy these HTML button styles to use in your feedback blocks:
-                  </p>
-                  <div className="space-y-4 max-h-96 overflow-y-auto">
-                    {buttonStylePresets.map((preset, index) => (
-                      <div key={index} className="border rounded-lg p-3">
-                        <div className="flex items-center gap-3 mb-2">
-                          <button
-                            style={preset.styles as React.CSSProperties}
-                            className="pointer-events-none"
-                          >
-                            {preset.preview}
-                          </button>
-                          <span className="font-medium">{preset.name}</span>
-                        </div>
-                        <div className="bg-gray-100 p-2 rounded font-mono text-xs overflow-x-auto">
-                          <code>
-                            {generateButtonHTML(preset)}
-                          </code>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-2"
-                          onClick={() => {
-                            navigator.clipboard.writeText(generateButtonHTML(preset));
-                          }}
-                        >
-                          Copy HTML
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                    <p className="text-sm text-blue-800">
-                      <strong>How to use:</strong> Copy the HTML code and paste it into your feedback content blocks. 
-                      You can change the button text to match your content.
-                    </p>
-                  </div>
-                </CardContent>
+              {generatedXML && (
+                <XMLViewer
+                  xml={generatedXML}
+                  filename={`${question.identifier || "hottext-question"}.xml`}
+                />
               )}
-            </Card>
-          </div>
+
+              {/* Collapsible Style Presets Reference Card - Moved to bottom */}
+              <Card>
+                <CardHeader
+                  className="cursor-pointer"
+                  onClick={() => setIsReferenceExpanded(!isReferenceExpanded)}
+                >
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Button Style Presets Reference</span>
+                    {isReferenceExpanded ? (
+                      <ChevronUp className="w-5 h-5" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5" />
+                    )}
+                  </CardTitle>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {isReferenceExpanded
+                      ? "Click to collapse button style reference"
+                      : "Click to expand and copy HTML button styles for feedback blocks"}
+                  </p>
+                </CardHeader>
+                {isReferenceExpanded && (
+                  <CardContent>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Copy these HTML button styles to use in your feedback
+                      blocks:
+                    </p>
+                    <div className="space-y-4 max-h-96 overflow-y-auto">
+                      {buttonStylePresets.map((preset, index) => (
+                        <div key={index} className="border rounded-lg p-3">
+                          <div className="flex items-center gap-3 mb-2">
+                            <button
+                              style={preset.styles as React.CSSProperties}
+                              className="pointer-events-none"
+                            >
+                              {preset.preview}
+                            </button>
+                            <span className="font-medium">{preset.name}</span>
+                          </div>
+                          <div className="bg-gray-100 p-2 rounded font-mono text-xs overflow-x-auto">
+                            <code>{generateButtonHTML(preset)}</code>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-2"
+                            onClick={() => {
+                              navigator.clipboard.writeText(
+                                generateButtonHTML(preset)
+                              );
+                            }}
+                          >
+                            Copy HTML
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                      <p className="text-sm text-blue-800">
+                        <strong>How to use:</strong> Copy the HTML code and
+                        paste it into your feedback content blocks. You can
+                        change the button text to match your content.
+                      </p>
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+            </div>
+          )}
         </div>
       </div>
-      
     </div>
   );
 }

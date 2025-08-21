@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, Plus, Eye, Copy, Upload, Code, Image as ImageIcon, ChevronDown, ChevronUp, Bold, Italic, Underline, Palette, Type } from "lucide-react";
 import { XMLViewer } from "@/components/xml-viewer";
+import { PreviewRenderer } from "@/components/preview-renderer";
 import { Toggle } from "@/components/ui/toggle";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -119,6 +120,7 @@ export default function GapMatchBuilder() {
   const [activeTab, setActiveTab] = useState<"content" | "gaps" | "feedback" | "styles" | "preview">("content");
   const [importXML, setImportXML] = useState("");
   const [isImporting, setIsImporting] = useState(false);
+  const [showRenderPreview, setShowRenderPreview] = useState(false);
   
   const [expandedPanels, setExpandedPanels] = useState({
     instructions: true,
@@ -1032,10 +1034,7 @@ export default function GapMatchBuilder() {
               
               <TabsContent value="preview" className="space-y-6">
                 <div className="space-y-4">
-                  <div className="text-center">
-                    <h3 className="text-xl font-bold mb-2">Question Preview</h3>
-                    <p className="text-gray-600">See how your gap match question will appear to students</p>
-                  </div>
+               
                   
                   <Card className="p-6" style={question.globalStyles}>
                     <div className="space-y-6">
@@ -1185,6 +1184,14 @@ export default function GapMatchBuilder() {
             </Tabs>
           </CardContent>
         </Card>
+
+        
+          <PreviewRenderer
+            xmlContent={generatedXML}
+            questionType="gap-match"
+            disabled={!generatedXML}
+          />
+      
 
         {generatedXML && (
           <Card>

@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Trash2, Plus, ArrowRight, Eye, Upload } from "lucide-react"
 import { ContentBlockEditor } from "@/components/content-block-editor"
 import { XMLViewer } from "@/components/xml-viewer"
+import { PreviewRenderer } from "@/components/preview-renderer"
 import type { MatchQuestion, MatchPair, ContentBlock } from "@/lib/types"
 import { generateMatchXML } from "@/lib/xml-generator"
 
@@ -324,6 +325,7 @@ export default function MatchBuilderPage() {
 
   const [generatedXML, setGeneratedXML] = useState("")
   const [importXML, setImportXML] = useState("")
+  const [showRenderPreview, setShowRenderPreview] = useState(false)
 
   useEffect(() => {
     if (question.identifier && question.promptBlocks.length > 0 && question.pairs.length > 0) {
@@ -640,6 +642,7 @@ export default function MatchBuilderPage() {
                   <Eye className="w-5 h-5" />
                   Preview
                 </CardTitle>
+              
               </CardHeader>
               <CardContent>
                 {question.promptBlocks.length > 0 && question.pairs.length > 0 ? (
@@ -696,6 +699,9 @@ export default function MatchBuilderPage() {
             {generatedXML && (
               <XMLViewer xml={generatedXML} filename={`${question.identifier || "match-question"}.xml`} />
             )}
+
+              <PreviewRenderer xmlContent={generatedXML} questionType="match" />
+        
           </div>
       </div>
     </div>

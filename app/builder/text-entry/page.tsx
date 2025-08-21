@@ -2277,14 +2277,7 @@ export default function TextEntryBuilderPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex gap-2">
-                    <Button
-                      onClick={handleGenerateXMLForPreview}
-                      disabled={isGenerating || !xml}
-                    >
-                      {isGenerating
-                        ? "Generating..."
-                        : "Generate XML for Preview"}
-                    </Button>
+                   
                     <Button
                       variant="outline"
                       onClick={() => navigator.clipboard.writeText(xml)}

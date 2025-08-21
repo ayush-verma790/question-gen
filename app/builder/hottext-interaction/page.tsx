@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Trash2, Plus, Eye, Download, Upload, Image, FileText, CheckSquare, MessageSquare } from "lucide-react"
 import { XMLViewer } from "@/components/xml-viewer"
+import { PreviewRenderer } from "@/components/preview-renderer"
 import { RichTextEditor } from "@/components/rich-text-editor"
 import { ContentBlockEditor } from "@/components/content-block-editor"
 import { AdvancedColorPicker } from "@/components/advanced-color-picker"
@@ -90,6 +91,7 @@ export default function ImageHottextBuilder() {
 
   const [generatedXML, setGeneratedXML] = useState("")
   const [importXML, setImportXML] = useState("")
+  const [showRenderPreview, setShowRenderPreview] = useState(false)
 
   // Helper function to parse XML and extract data
   const parseXMLToQuestion = (xmlString: string): Partial<QuestionData> => {
@@ -971,6 +973,7 @@ ${hottextElements}
                     <Eye className="w-5 h-5" />
                     Live Preview
                   </CardTitle>
+              
                 </CardHeader>
                 <CardContent>
                   <div className="bg-white p-4 rounded-lg border min-h-48">
@@ -1083,6 +1086,11 @@ ${hottextElements}
                   </CardContent>
                 </Card>
               )}
+
+              {/* XML Preview Renderer */}
+            
+                <PreviewRenderer xmlContent={generatedXML} questionType="hottext-interaction" />
+      
             </div>
           </TabsContent>
         </Tabs>

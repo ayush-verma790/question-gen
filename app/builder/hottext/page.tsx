@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { ContentBlockEditor } from "@/components/content-block-editor";
 import { XMLViewer } from "@/components/xml-viewer";
+import { PreviewRenderer } from "@/components/preview-renderer";
 import { AdvancedColorPicker } from "@/components/advanced-color-picker";
 import { Toggle } from "@/components/ui/toggle";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -495,6 +496,7 @@ export default function HottextBuilderPage() {
   const [selectedItemForStyle, setSelectedItemForStyle] = useState<string | null>(null);
   const [isReferenceExpanded, setIsReferenceExpanded] = useState(false);
   const [isImportExpanded, setIsImportExpanded] = useState(false);
+  const [showRenderPreview, setShowRenderPreview] = useState(false);
 
   useEffect(() => {
     if (
@@ -1616,6 +1618,7 @@ export default function HottextBuilderPage() {
                   <Eye className="w-5 h-5" />
                   Preview
                 </CardTitle>
+             
               </CardHeader>
               <CardContent>
                 {question.promptBlocks.length > 0  ? (
@@ -1667,6 +1670,14 @@ export default function HottextBuilderPage() {
                 )}
               </CardContent>
             </Card>
+
+         
+              <PreviewRenderer
+                xmlContent={generatedXML}
+                questionType="hottext"
+                disabled={!generatedXML}
+              />
+          
 
             {generatedXML && (
               <XMLViewer

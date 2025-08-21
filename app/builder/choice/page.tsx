@@ -17,6 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, Plus, Eye, Upload } from "lucide-react";
 import { ContentBlockEditor } from "@/components/content-block-editor";
 import { XMLViewer } from "@/components/xml-viewer";
+import { PreviewRenderer } from "@/components/preview-renderer";
 import type {
   MultipleChoiceQuestion,
   MultipleChoiceOption,
@@ -816,6 +817,12 @@ function ChoiceBuilder() {
               )}
             </CardContent>
           </Card>
+
+          <PreviewRenderer
+            xmlContent={generatedXML}
+            questionType="choice"
+            disabled={!generatedXML}
+          />
 
           {generatedXML && (
             <XMLViewer

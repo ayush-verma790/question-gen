@@ -348,6 +348,15 @@ export default function HottextBuilderPage() {
       //     height: "300",
       //   },
       // },
+      {
+        id: "prompt_block_default",
+        type: "text",
+        content: "",
+        styles: {
+        
+        },
+        attributes: {},
+      },
     ],
     contentBlocks: [],
     hottextItems: [
@@ -649,33 +658,16 @@ export default function HottextBuilderPage() {
       if (textFormat.underline) formattedText = `<u>${formattedText}</u>`;
       contentValue = formattedText;
     } else if (activeTab === "image") {
-      contentValue = selectedImage.trim();
+      // Create proper img tag with closing tag
+      contentValue = `<img src="${selectedImage.trim()}" alt="Hottext image" />`;
     } else {
       contentValue = selectedHTML.trim();
     }
 
     let finalStyles;
 
-    // If normal text is selected, use no styling
-    if (selectedButtonStyle === "normal") {
-      finalStyles = {
-        display: "inline",
-        backgroundColor: "transparent",
-        color: "inherit",
-        fontSize: "inherit",
-        width: "auto",
-        height: "auto",
-        borderRadius: "0",
-        textAlign: "inherit" as const,
-        lineHeight: "inherit",
-        border: "none",
-        padding: "0",
-        margin: "0",
-        boxShadow: "none",
-        transition: "none",
-      };
-    } else if (selectedButtonStyle && selectedButtonStyle !== "normal") {
-      // If a button style is selected, use it
+    // If a button style is selected, use it
+    if (selectedButtonStyle) {
       finalStyles = {
         display: "inline-block",
         padding: "0px",
@@ -850,6 +842,15 @@ export default function HottextBuilderPage() {
           item.content.value.includes("<i>"),
         underline: item.content.value.includes("<u>"),
       });
+    } else if (item.content.type === "image") {
+      // Extract URL from img tag if it exists
+      const imgSrcMatch = item.content.value.match(/src="([^"]+)"/);
+      if (imgSrcMatch) {
+        setEditingHottextContent(imgSrcMatch[1]);
+      } else {
+        // Fallback to raw value if it's just a URL
+        setEditingHottextContent(item.content.value);
+      }
     }
   };
 
@@ -859,6 +860,9 @@ export default function HottextBuilderPage() {
       if (textFormat.bold) contentValue = `<strong>${contentValue}</strong>`;
       if (textFormat.italic) contentValue = `<em>${contentValue}</em>`;
       if (textFormat.underline) contentValue = `<u>${contentValue}</u>`;
+    } else if (editingHottextType === "image") {
+      // Create proper img tag with closing tag for image editing
+      contentValue = `<img src="${editingHottextContent.trim()}" alt="Hottext image" />`;
     }
 
     setQuestion((prev) => ({
@@ -1468,129 +1472,147 @@ export default function HottextBuilderPage() {
                         </Button>
                       </div> */}
 
-                      {/* New Workflow: Style First, Content Second */}
+                      {/* 3-Step Workflow: Content → Style → Add */}
                       <div className="border rounded-lg p-4">
-                        <Label className="text-sm font-medium text-gray-700 mb-3 block">
-                          Step 1: Choose Style Type
+                        <Label className="text-sm font-medium text-gray-700 mb-4 block">
+                          Create Hottext Item
                         </Label>
                         
-                        {!showContentInput ? (
-                          <div className="space-y-3">
-                            {/* Normal Text Option */}
-                            <div>
-                              <Button
-                                onClick={() => {
-                                  setSelectedButtonStyle("normal");
-                                  setShowContentInput(true);
-                                }}
-                                variant="outline"
-                                className="w-full bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100"
-                              >
-                                <FileText className="w-4 h-4 mr-2" />
-                                Normal Text (No Styling)
-                              </Button>
-                              <p className="text-xs text-gray-500 mt-1">
-                                Creates plain text with no CSS styling
-                              </p>
+                        <div className="space-y-4">
+                          {/* Step 1: Content Input */}
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-medium">
+                                1
+                              </div>
+                              <Label className="text-sm font-medium text-gray-700">
+                                Enter your text content
+                              </Label>
                             </div>
+                            <Input
+                              value={selectedText}
+                              onChange={(e) => setSelectedText(e.target.value)}
+                              placeholder="Type your text here..."
+                            />
+                            
+                            {/* Text Formatting */}
+                            <div className="flex gap-1 ml-8">
+                              <Toggle
+                                pressed={textFormat.bold}
+                                onPressedChange={() => toggleTextFormat("bold")}
+                                size="sm"
+                                aria-label="Toggle bold"
+                              >
+                                <Bold className="h-4 w-4" />
+                              </Toggle>
+                              <Toggle
+                                pressed={textFormat.italic}
+                                onPressedChange={() => toggleTextFormat("italic")}
+                                size="sm"
+                                aria-label="Toggle italic"
+                              >
+                                <Italic className="h-4 w-4" />
+                              </Toggle>
+                              <Toggle
+                                pressed={textFormat.underline}
+                                onPressedChange={() =>
+                                  toggleTextFormat("underline")
+                                }
+                                size="sm"
+                                aria-label="Toggle underline"
+                              >
+                                <Underline className="h-4 w-4" />
+                              </Toggle>
+                            </div>
+                          </div>
 
-                            {/* Button Style Options */}
-                            <div>
-                              <p className="text-sm text-gray-600 mb-2">
-                                Or choose a button style:
-                              </p>
-                              <QuickStylePresets
-                                onApplyPreset={(preset) => {
-                                  setSelectedButtonStyle(preset.styles);
-                                  setShowContentInput(true);
-                                }}
-                                maxItems={6}
-                                showOnlyCategory="basic"
-                              />
-                              <div className="mt-2">
+                          {/* Step 2: Style Selection (only show when text is entered) */}
+                          {selectedText.trim() && (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-medium">
+                                  2
+                                </div>
+                                <Label className="text-sm font-medium text-gray-700">
+                                  Choose button style
+                                </Label>
+                              </div>
+                              <div className="ml-8 space-y-3">
                                 <QuickStylePresets
                                   onApplyPreset={(preset) => {
                                     setSelectedButtonStyle(preset.styles);
-                                    setShowContentInput(true);
+                                  }}
+                                  maxItems={6}
+                                  showOnlyCategory="basic"
+                                />
+                                <QuickStylePresets
+                                  onApplyPreset={(preset) => {
+                                    setSelectedButtonStyle(preset.styles);
                                   }}
                                   maxItems={4}
                                   showOnlyCategory="gradient"
                                 />
+                                {selectedButtonStyle && (
+                                  <p className="text-sm text-green-600 font-medium">
+                                    ✓ Style selected
+                                  </p>
+                                )}
                               </div>
                             </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                              <p className="text-sm text-green-600 font-medium">
-                                Style selected: {selectedButtonStyle === "normal" ? "Normal Text" : "Button Style"}
-                              </p>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedButtonStyle(null);
-                                  setShowContentInput(false);
-                                  setSelectedText("");
-                                }}
-                              >
-                                Change Style
-                              </Button>
-                            </div>
+                          )}
 
-                            <Label className="text-sm font-medium text-gray-700 block">
-                              Step 2: Enter Content
-                            </Label>
-
-                            <div className="flex flex-col gap-3">
-                              <Input
-                                value={selectedText}
-                                onChange={(e) => setSelectedText(e.target.value)}
-                                placeholder="Enter your text content"
-                                autoFocus
-                              />
-                              
-                              {/* Text Formatting */}
-                              <div className="flex gap-1">
-                                <Toggle
-                                  pressed={textFormat.bold}
-                                  onPressedChange={() => toggleTextFormat("bold")}
-                                  size="sm"
-                                  aria-label="Toggle bold"
-                                >
-                                  <Bold className="h-4 w-4" />
-                                </Toggle>
-                                <Toggle
-                                  pressed={textFormat.italic}
-                                  onPressedChange={() => toggleTextFormat("italic")}
-                                  size="sm"
-                                  aria-label="Toggle italic"
-                                >
-                                  <Italic className="h-4 w-4" />
-                                </Toggle>
-                                <Toggle
-                                  pressed={textFormat.underline}
-                                  onPressedChange={() =>
-                                    toggleTextFormat("underline")
-                                  }
-                                  size="sm"
-                                  aria-label="Toggle underline"
-                                >
-                                  <Underline className="h-4 w-4" />
-                                </Toggle>
+                          {/* Step 3: Add Button (only show when both text and style are selected) */}
+                          {selectedText.trim() && selectedButtonStyle && (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-medium">
+                                  3
+                                </div>
+                                <Label className="text-sm font-medium text-gray-700">
+                                  Add to hottext items
+                                </Label>
                               </div>
-
-                              <Button
-                                onClick={addHottextItem}
-                                disabled={!selectedText.trim()}
-                                className="w-full"
-                              >
-                                <Plus className="w-4 h-4 mr-2" />
-                                Add Item
-                              </Button>
+                              <div className="ml-8">
+                                <Button
+                                  onClick={addHottextItem}
+                                  className="w-full bg-green-600 hover:bg-green-700"
+                                >
+                                  <Plus className="w-4 h-4 mr-2" />
+                                  Add Item
+                                </Button>
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
+
+                          {/* Helper text */}
+                          {!selectedText.trim() && (
+                            <p className="text-xs text-gray-500 ml-8">
+                              Start by entering your text content above
+                            </p>
+                          )}
+                          {selectedText.trim() && !selectedButtonStyle && (
+                            <p className="text-xs text-gray-500 ml-8">
+                              Now choose a button style for your text
+                            </p>
+                          )}
+
+                          {/* Button Preview */}
+                          {selectedText.trim() && selectedButtonStyle && (
+                            <div className="space-y-2 pt-4 border-t border-gray-200">
+                              <Label className="text-sm font-medium text-gray-700">
+                                Preview:
+                              </Label>
+                              <div className="p-4 bg-white border rounded-lg">
+                                <div 
+                                  style={selectedButtonStyle as React.CSSProperties}
+                                  className="inline-block"
+                                >
+                                  {selectedText}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </TabsContent>
 
@@ -1787,8 +1809,25 @@ export default function HottextBuilderPage() {
                             )}
                           </>
                         ) : (
-                          <div className="p-2 bg-gray-50 rounded border">
-                            {renderHottextContent(item)}
+                          <div className="space-y-3">
+                            <div className="p-2 bg-gray-50 rounded border">
+                              {renderHottextContent(item)}
+                            </div>
+                            
+                            {/* Hottext Item Preview */}
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium text-gray-700">
+                                Preview (How it will appear):
+                              </Label>
+                              <div className="p-4 bg-white border rounded-lg">
+                                <div 
+                                  style={item.styles as React.CSSProperties}
+                                  className="inline-block"
+                                >
+                                  {renderHottextContent(item)}
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         )}
 
@@ -1820,18 +1859,18 @@ export default function HottextBuilderPage() {
             </>
           )}
 
-          {activeSection === "feedback" && (
-            <ContentBlockEditor
-              blocks={question.incorrectFeedbackBlocks}
-              onChange={(blocks) =>
-                setQuestion((prev) => ({
-                  ...prev,
-                  incorrectFeedbackBlocks: blocks,
-                }))
-              }
-              title="Incorrect Answer Feedback"
-            />
-          )}
+          {/* {activeSection === "feedback" && (
+            // <ContentBlockEditor
+            //   blocks={question.incorrectFeedbackBlocks}
+            //   onChange={(blocks) =>
+            //     setQuestion((prev) => ({
+            //       ...prev,
+            //       incorrectFeedbackBlocks: blocks,
+            //     }))
+            //   }
+            //   title="Incorrect Answer Feedback"
+            // />
+          )} */}
 
           {activeSection === "preview" && (
             <Card>

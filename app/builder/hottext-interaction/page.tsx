@@ -85,7 +85,7 @@ export default function ImageHottextBuilder() {
       backgroundColor: "#ffffff",
       padding: "24px",
       borderRadius: "16px",
-      boxShadow: "0 10px 25px rgba(0,0,0,0.1)"
+      boxShadow: ""
     }
   })
 
@@ -431,7 +431,7 @@ export default function ImageHottextBuilder() {
 
   <qti-item-body>
     <div style="${containerStyleStr}">
-      <div style="font-size: 20px; font-family: Arial, sans-serif; color: #000000; padding: 8px; margin: 4px; border-radius: 4px; border: none; box-shadow: none; text-align: left">${questionContent}</div>
+      <div >${questionContent}</div>
       ${question.mainImageUrl ? `<img src="${question.mainImageUrl}" alt="${question.mainImageAlt}" style="${mainImageStyleStr}"/>` : ''}
 
       <qti-hottext-interaction response-identifier="RESPONSE" max-choices="1">
@@ -523,7 +523,7 @@ ${hottextElements}
           <TabsContent value="question" className="space-y-8">
             <div className="grid lg:grid-cols-1 max-w-5xl mx-auto">
               {/* XML Import Section */}
-              <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-md rounded-2xl overflow-hidden mb-8">
+              {/* <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-md rounded-2xl overflow-hidden mb-8">
                 <CardHeader className="bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100/50 pb-4">
                   <CardTitle className="text-xl font-bold text-emerald-900 flex items-center gap-3">
                     <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
@@ -561,7 +561,7 @@ ${hottextElements}
                     </Button>
                   </div>
                 </CardContent>
-              </Card>
+              </Card> */}
 
               {/* Basic Information */}
               <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-md rounded-2xl overflow-hidden">
@@ -570,11 +570,11 @@ ${hottextElements}
                     <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                       <FileText className="w-4 h-4 text-blue-600" />
                     </div>
-                    Basic Information
+                    Question Details
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6 p-6">
-                  <div className="grid sm:grid-cols-2 gap-6">
+                  {/* <div className="grid sm:grid-cols-2 gap-6">
                     <div>
                       <Label className="text-sm font-semibold text-gray-700 mb-2 block">Question Identifier</Label>
                       <Input
@@ -593,7 +593,7 @@ ${hottextElements}
                         placeholder="e.g., Identify the Pictures"
                       />
                     </div>
-                  </div>
+                  </div> */}
                   <div>
                     <Label className="text-sm font-semibold text-gray-700 mb-2 block">Question Text</Label>
                     <div className="border-2 border-gray-200 rounded-xl overflow-hidden focus-within:border-blue-400 transition-colors">

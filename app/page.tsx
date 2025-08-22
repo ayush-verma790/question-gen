@@ -107,7 +107,7 @@ export default function HomePage() {
         </div>
 
         {/* XML Parser Section */}
-        <div className="max-w-4xl mx-auto mb-12">
+        {/* <div className="max-w-4xl mx-auto mb-12">
           <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
             <CardHeader>
               <div className="flex items-center gap-3">
@@ -133,16 +133,16 @@ export default function HomePage() {
               </Link>
             </CardContent>
           </Card>
-        </div>
+        </div> */}
 
-        <div className="text-center mb-8">
+        {/* <div className="text-center mb-8">
           <h2 className="text-2xl font-semibold text-gray-800 mb-2">
             Or Create New Questions
           </h2>
           <p className="text-gray-600">
             Choose a question type to start building from scratch
           </p>
-        </div>
+        </div> */}
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
           {questionTypes.map((type) => {

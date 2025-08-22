@@ -475,25 +475,25 @@ export default function HottextBuilderPage() {
       // },
     ],
     incorrectFeedbackBlocks: [
-      // {
-      //   id: "incorrect_feedback_block_1",
-      //   type: "text",
-      //   content:
-      //     "<div style='font-size: 22px; font-family: Glacial Indifference; padding: 8px; margin: 4px; border-radius: 0px; border: none; boxShadow: none; text-align: left'><span style='font-family: Arial, sans-serif; font-size: 30px; font-weight: bold; color: #FF0000;'>Nice Try!</span><br/><br/><span style='font-family: Arial, sans-serif; font-size: 32px; font-weight: bold; color: #27c94c;'>Correct answer is:</span><span style='display:inline-block;margin-left; background-color:#a94400; color:white; font-size:28px; width:60px; height:60px; border-radius:10px; text-align:center; line-height:60px;'>3</span> <br/><br/>Count the dragons one by one.<br/><br/></div>",
-      //   styles: {
-      //     fontSize: "22px",
-      //     fontFamily: "Glacial Indifference",
-      //     color: "#000000",
-      //     backgroundColor: "transparent",
-      //     padding: "8px",
-      //     margin: "4px",
-      //     borderRadius: "0px",
-      //     border: "none",
-      //     boxShadow: "none",
-      //     textAlign: "left",
-      //   },
-      //   attributes: {},
-      // },
+      {
+        id: "incorrect_feedback_block_1",
+        type: "text",
+        content:
+          "",
+        styles: {
+          fontSize: "",
+          fontFamily: "Glacial Indifferenc",
+          color: "#000000",
+          backgroundColor: "transparent",
+          padding: "",
+          margin: "",
+          borderRadius: "",
+          border: "none",
+          boxShadow: "none",
+  
+        },
+        attributes: {},
+      },
       // {
       //   id: "incorrect_feedback_block_2",
       //   type: "image",
@@ -1251,55 +1251,67 @@ export default function HottextBuilderPage() {
 
   return (
     <div className="min-h-screen w-full bg-gray-50">
-      <div className="w-[60%] mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Hottext Question Builder
-          </h1>
-          <p className="text-gray-600">
-            Create interactive text with selectable highlighted terms
-          </p>
+      <div className="w-full max-w-7xl mx-auto px-6 py-8 flex gap-6">
+        {/* Compact Vertical Tab Buttons - Left Side */}
+       <div className="w-56 flex-shrink-0 pr-6 position: static;">
+          <div className="flex flex-col gap-2">
+            <button
+              className={`text-left px-4 py-2 rounded font-medium transition-colors ${
+                activeSection === "question"
+                  ? "bg-blue-100 text-blue-700"
+                  : "hover:bg-gray-100"
+              }`}
+              onClick={() => switchToSection("question")}
+            >
+              Question
+            </button>
+            <button
+              className={`text-left px-4 py-2 rounded font-medium transition-colors ${
+                activeSection === "hottext"
+                  ? "bg-blue-100 text-blue-700"
+                  : "hover:bg-gray-100"
+              }`}
+              onClick={() => switchToSection("hottext")}
+            >
+              Options
+            </button>
+            <button
+              className={`text-left px-4 py-2 rounded font-medium transition-colors ${
+                activeSection === "feedback"
+                  ? "bg-blue-100 text-blue-700"
+                  : "hover:bg-gray-100"
+              }`}
+              onClick={() => switchToSection("feedback")}
+            >
+             Incorrect Feedback
+            </button>
+
+            <button
+              className={`text-left px-4 py-2 rounded font-medium transition-colors ${
+                activeSection === "preview"
+                  ? "bg-blue-100 text-blue-700"
+                  : "hover:bg-gray-100"
+              }`}
+              onClick={() => {
+                switchToSection("preview");
+              }}
+            >
+              Preview
+            </button>
+          </div>
         </div>
 
-        {/* Section Toggle Buttons - Left aligned */}
-
-        <div className="mb-6 flex gap-2">
-          <Button
-            variant={activeSection === "question" ? "default" : "outline"}
-            size="sm"
-            onClick={() => switchToSection("question")}
-          >
-            <Settings className="w-4 h-4 mr-2" />
-            Question Setup
-          </Button>
-
-          <Button
-            variant={activeSection === "hottext" ? "default" : "outline"}
-            size="sm"
-            onClick={() => switchToSection("hottext")}
-          >
-            <Layers className="w-4 h-4 mr-2" />
-            Hottext Items
-          </Button>
-
-          <Button
-            variant={activeSection === "feedback" ? "default" : "outline"}
-            size="sm"
-            onClick={() => switchToSection("feedback")}
-          >
-            <MessageSquare className="w-4 h-4 mr-2" />
-            Incorrect Feedback
-          </Button>
-
-          <Button
-            variant={activeSection === "preview" ? "default" : "outline"}
-            size="sm"
-            onClick={() => switchToSection("preview")}
-          >
-            <Eye className="w-4 h-4 mr-2" />
-            Preview
-          </Button>
-        </div>
+        {/* Main Content Area */}
+        <div className="flex-1 min-w-0">
+          {/* Header */}
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Hottext Question Builder
+            </h1>
+            <p className="text-gray-600">
+              Create interactive text with selectable highlighted terms
+            </p>
+          </div>
         <div className="w-full space-y-6">
           <Card>
             <CardHeader
@@ -1366,7 +1378,7 @@ export default function HottextBuilderPage() {
                   <CardTitle>Question Details</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div>
+                  {/* <div>
                     <Label htmlFor="identifier">Question ID</Label>
                     <Input
                       id="identifier"
@@ -1393,7 +1405,7 @@ export default function HottextBuilderPage() {
                       }
                       placeholder="Question title"
                     />
-                  </div>
+                  </div> */}
                   <div>
                     <Label>Max Choices</Label>
                     <Input
@@ -1473,147 +1485,7 @@ export default function HottextBuilderPage() {
                       </div> */}
 
                       {/* 3-Step Workflow: Content → Style → Add */}
-                      <div className="border rounded-lg p-4">
-                        <Label className="text-sm font-medium text-gray-700 mb-4 block">
-                          Create Hottext Item
-                        </Label>
-                        
-                        <div className="space-y-4">
-                          {/* Step 1: Content Input */}
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-medium">
-                                1
-                              </div>
-                              <Label className="text-sm font-medium text-gray-700">
-                                Enter your text content
-                              </Label>
-                            </div>
-                            <Input
-                              value={selectedText}
-                              onChange={(e) => setSelectedText(e.target.value)}
-                              placeholder="Type your text here..."
-                            />
-                            
-                            {/* Text Formatting */}
-                            <div className="flex gap-1 ml-8">
-                              <Toggle
-                                pressed={textFormat.bold}
-                                onPressedChange={() => toggleTextFormat("bold")}
-                                size="sm"
-                                aria-label="Toggle bold"
-                              >
-                                <Bold className="h-4 w-4" />
-                              </Toggle>
-                              <Toggle
-                                pressed={textFormat.italic}
-                                onPressedChange={() => toggleTextFormat("italic")}
-                                size="sm"
-                                aria-label="Toggle italic"
-                              >
-                                <Italic className="h-4 w-4" />
-                              </Toggle>
-                              <Toggle
-                                pressed={textFormat.underline}
-                                onPressedChange={() =>
-                                  toggleTextFormat("underline")
-                                }
-                                size="sm"
-                                aria-label="Toggle underline"
-                              >
-                                <Underline className="h-4 w-4" />
-                              </Toggle>
-                            </div>
-                          </div>
-
-                          {/* Step 2: Style Selection (only show when text is entered) */}
-                          {selectedText.trim() && (
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-medium">
-                                  2
-                                </div>
-                                <Label className="text-sm font-medium text-gray-700">
-                                  Choose button style
-                                </Label>
-                              </div>
-                              <div className="ml-8 space-y-3">
-                                <QuickStylePresets
-                                  onApplyPreset={(preset) => {
-                                    setSelectedButtonStyle(preset.styles);
-                                  }}
-                                  maxItems={6}
-                                  showOnlyCategory="basic"
-                                />
-                                <QuickStylePresets
-                                  onApplyPreset={(preset) => {
-                                    setSelectedButtonStyle(preset.styles);
-                                  }}
-                                  maxItems={4}
-                                  showOnlyCategory="gradient"
-                                />
-                                {selectedButtonStyle && (
-                                  <p className="text-sm text-green-600 font-medium">
-                                    ✓ Style selected
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Step 3: Add Button (only show when both text and style are selected) */}
-                          {selectedText.trim() && selectedButtonStyle && (
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-medium">
-                                  3
-                                </div>
-                                <Label className="text-sm font-medium text-gray-700">
-                                  Add to hottext items
-                                </Label>
-                              </div>
-                              <div className="ml-8">
-                                <Button
-                                  onClick={addHottextItem}
-                                  className="w-full bg-green-600 hover:bg-green-700"
-                                >
-                                  <Plus className="w-4 h-4 mr-2" />
-                                  Add Item
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Helper text */}
-                          {!selectedText.trim() && (
-                            <p className="text-xs text-gray-500 ml-8">
-                              Start by entering your text content above
-                            </p>
-                          )}
-                          {selectedText.trim() && !selectedButtonStyle && (
-                            <p className="text-xs text-gray-500 ml-8">
-                              Now choose a button style for your text
-                            </p>
-                          )}
-
-                          {/* Button Preview */}
-                          {selectedText.trim() && selectedButtonStyle && (
-                            <div className="space-y-2 pt-4 border-t border-gray-200">
-                              <Label className="text-sm font-medium text-gray-700">
-                                Preview:
-                              </Label>
-                              <div className="p-4 bg-white border rounded-lg">
-                                <div 
-                                  style={selectedButtonStyle as React.CSSProperties}
-                                  className="inline-block"
-                                >
-                                  {selectedText}
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                    
                     </TabsContent>
 
                     <TabsContent value="image" className="space-y-2">
@@ -1831,16 +1703,160 @@ export default function HottextBuilderPage() {
                           </div>
                         )}
 
-                        <div className="grid grid-cols-2 gap-3 mt-4">
+                        {/* <div className="grid grid-cols-2 gap-3 mt-4">
                           {renderStyleControls(item)}
-                        </div>
+                        </div> */}
                       </Card>
                     ))}
                   </div>
                   <p className="text-sm text-gray-600">
                     Click on badges to mark as correct answers
                   </p>
+                   
                 </CardContent>
+              </Card>
+              <Card>
+                 <div className="border rounded-lg p-4">
+                        <Label className="text-sm font-large text-gray-700 mb-4 block">
+                          Create Hottext Item
+                        </Label>
+                        
+                        <div className="space-y-4">
+                          {/* Step 1: Content Input */}
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-medium">
+                                1
+                              </div>
+                              <Label className="text-sm font-medium text-gray-700">
+                                Enter your text content
+                              </Label>
+                            </div>
+                            <Input
+                              value={selectedText}
+                              onChange={(e) => setSelectedText(e.target.value)}
+                              placeholder="Type your text here..."
+                            />
+                            
+                            {/* Text Formatting */}
+                            <div className="flex gap-1 ml-8">
+                              <Toggle
+                                pressed={textFormat.bold}
+                                onPressedChange={() => toggleTextFormat("bold")}
+                                size="sm"
+                                aria-label="Toggle bold"
+                              >
+                                <Bold className="h-4 w-4" />
+                              </Toggle>
+                              <Toggle
+                                pressed={textFormat.italic}
+                                onPressedChange={() => toggleTextFormat("italic")}
+                                size="sm"
+                                aria-label="Toggle italic"
+                              >
+                                <Italic className="h-4 w-4" />
+                              </Toggle>
+                              <Toggle
+                                pressed={textFormat.underline}
+                                onPressedChange={() =>
+                                  toggleTextFormat("underline")
+                                }
+                                size="sm"
+                                aria-label="Toggle underline"
+                              >
+                                <Underline className="h-4 w-4" />
+                              </Toggle>
+                            </div>
+                          </div>
+
+                          {/* Step 2: Style Selection (only show when text is entered) */}
+                          {selectedText.trim() && (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-medium">
+                                  2
+                                </div>
+                                <Label className="text-sm font-medium text-gray-700">
+                                  Choose button style
+                                </Label>
+                              </div>
+                              <div className="ml-8 space-y-3">
+                                <QuickStylePresets
+                                  onApplyPreset={(preset) => {
+                                    setSelectedButtonStyle(preset.styles);
+                                  }}
+                                  maxItems={6}
+                                  showOnlyCategory="basic"
+                                />
+                                <QuickStylePresets
+                                  onApplyPreset={(preset) => {
+                                    setSelectedButtonStyle(preset.styles);
+                                  }}
+                                  maxItems={4}
+                                  showOnlyCategory="gradient"
+                                />
+                                {selectedButtonStyle && (
+                                  <p className="text-sm text-green-600 font-medium">
+                                    ✓ Style selected
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Step 3: Add Button (only show when both text and style are selected) */}
+                          {selectedText.trim() && selectedButtonStyle && (
+                            <div className="space-y-2 ">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-medium">
+                                  3
+                                </div>
+                                <Label className="text-sm font-medium text-gray-700">
+                                  Add to hottext items
+                                </Label>
+                              </div>
+                              <div className="ml-8">
+                                <Button
+                                  onClick={addHottextItem}
+                                  className="w-full bg-green-600 hover:bg-green-700"
+                                >
+                                  <Plus className="w-4 h-4 mr-2" />
+                                  Add Item
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Helper text */}
+                          {!selectedText.trim() && (
+                            <p className="text-xs text-gray-500 ml-8">
+                              Start by entering your text content above
+                            </p>
+                          )}
+                          {selectedText.trim() && !selectedButtonStyle && (
+                            <p className="text-xs text-gray-500 ml-8">
+                              Now choose a button style for your text
+                            </p>
+                          )}
+
+                          {/* Button Preview */}
+                          {selectedText.trim() && selectedButtonStyle && (
+                            <div className="space-y-2 pt-4 border-t border-gray-200">
+                              <Label className="text-sm font-medium text-gray-700">
+                                Preview:
+                              </Label>
+                              <div className="p-4 bg-white border rounded-lg">
+                                <div 
+                                  style={selectedButtonStyle as React.CSSProperties}
+                                  className="inline-block"
+                                >
+                                  {selectedText}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
               </Card>
 
               {/* Style Preset Modal */}
@@ -1872,7 +1888,7 @@ export default function HottextBuilderPage() {
             // />
           )} */}
 
-          {activeSection === "preview" && (
+          {/* {activeSection === "preview" && (
             <Card>
               <CardHeader>
                 <CardTitle>Global Styles</CardTitle>
@@ -1957,7 +1973,7 @@ export default function HottextBuilderPage() {
                 </div>
               </CardContent>
             </Card>
-          )}
+          )} */}
 
           {/* <ContentBlockEditor
               blocks={question.correctFeedbackBlocks}
@@ -2125,6 +2141,7 @@ export default function HottextBuilderPage() {
               </Card>
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>

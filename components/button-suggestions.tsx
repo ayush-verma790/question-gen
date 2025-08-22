@@ -17,7 +17,7 @@ export function ButtonSuggestions({
   className,
   size = "md",
   showTitle = true,
-  defaultCollapsed = false
+  defaultCollapsed = true
 }: ButtonSuggestionsProps) {
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
   const suggestions = [

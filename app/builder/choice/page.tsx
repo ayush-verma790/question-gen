@@ -483,7 +483,7 @@ function ChoiceBuilder() {
             <CardHeader>
               <CardTitle>Import QTI XML</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            {/* <CardContent className="space-y-4">
               <div>
                 <Label htmlFor="import-xml">Paste your QTI XML here</Label>
                 <textarea
@@ -517,7 +517,7 @@ function ChoiceBuilder() {
                   disabled={isImporting}
                 />
               </div>
-            </CardContent>
+            </CardContent> */}
           </Card>
 
           <Card>
@@ -525,7 +525,7 @@ function ChoiceBuilder() {
               <CardTitle>Question Details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
+              {/* <div>
                 <Label htmlFor="identifier">Question ID</Label>
                 <Input
                   id="identifier"
@@ -549,7 +549,7 @@ function ChoiceBuilder() {
                   }
                   placeholder="Question title"
                 />
-              </div>
+              </div> */}
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <Label>Max Choices</Label>

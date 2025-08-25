@@ -95,7 +95,7 @@ const ContentBlockEditor = memo(
       "image"
     );
     const [mediaUrl, setMediaUrl] = useState("");
-    const [mediaWidth, setMediaWidth] = useState("100");
+    const [mediaWidth, setMediaWidth] = useState("40");
     const [mediaHeight, setMediaHeight] = useState("100");
     const [activeTextareaIndex, setActiveTextareaIndex] = useState<
       number | null

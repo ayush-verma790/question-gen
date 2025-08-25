@@ -158,7 +158,7 @@ export function RichTextEditor({
                 const height = prompt('Enter image height (%) - default 100:', '100');
                 
                 // Replace the image tag with our formatted version
-                const newImgTag = `<img src="${src}" alt="Image" style="width: ${width || '100'}%; height: ${height || '100'}%;" />`;
+                const newImgTag = `<img src="${src}" alt="Image" style="width: ${width || '40'}%; height: ${height || '100'}%;" />`;
                 html = html.replace(img.outerHTML, newImgTag);
               }
             }

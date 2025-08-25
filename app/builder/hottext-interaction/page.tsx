@@ -34,9 +34,11 @@ import { ContentBlockEditor } from "@/components/content-block-editor";
 import { AdvancedColorPicker } from "@/components/advanced-color-picker";
 import { ButtonSuggestions } from "@/components/button-suggestions";
 import type { ContentBlock } from "@/lib/types";
-import { Collapsible } from "@radix-ui/react-collapsible";
-import { CollapsibleTrigger } from "@/ui/collapsible";
-import { CollapsibleContent } from "@/components/ui/collapsible";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface HottextOption {
   id: string;

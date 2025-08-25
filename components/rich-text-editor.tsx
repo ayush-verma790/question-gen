@@ -36,6 +36,7 @@ interface RichTextEditorProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  height?: string;
 }
 
 export function RichTextEditor({
@@ -43,6 +44,7 @@ export function RichTextEditor({
   onChange,
   placeholder = "Enter text...",
   className = "",
+  height = "250px",
 }: RichTextEditorProps) {
   const [isHtmlMode, setIsHtmlMode] = useState(false);
   const [selectedText, setSelectedText] = useState("");
@@ -712,8 +714,11 @@ export function RichTextEditor({
         onKeyDown={handleKeyDown}
     
         placeholder={placeholder}
-        className="min-h-72 resize-y"
-        style={{ fontFamily: isHtmlMode ? "monospace" : "inherit" }}
+        style={{ 
+          height,
+          fontFamily: isHtmlMode ? "monospace" : "inherit"
+        }}
+        className="resize-y"
       />
 
       {!isHtmlMode && value && (

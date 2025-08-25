@@ -790,12 +790,38 @@ export default function HottextBuilderPage() {
   };
 
   const toggleCorrectAnswer = (identifier: string) => {
-    setQuestion((prev) => ({
-      ...prev,
-      correctAnswers: prev.correctAnswers.includes(identifier)
-        ? prev.correctAnswers.filter((id) => id !== identifier)
-        : [...prev.correctAnswers, identifier],
-    }));
+    setQuestion((prev) => {
+      const isCurrentlySelected = prev.correctAnswers.includes(identifier);
+      
+      // If already selected, remove it
+      if (isCurrentlySelected) {
+        return {
+          ...prev,
+          correctAnswers: prev.correctAnswers.filter((id) => id !== identifier),
+        };
+      }
+      
+      // If not selected, check maxChoices constraint
+      const maxChoices = prev.maxChoices || 1;
+      
+      if (maxChoices === 1) {
+        // For single choice, replace the current selection
+        return {
+          ...prev,
+          correctAnswers: [identifier],
+        };
+      } else {
+        // For multiple choice, only add if under the limit
+        if (prev.correctAnswers.length < maxChoices) {
+          return {
+            ...prev,
+            correctAnswers: [...prev.correctAnswers, identifier],
+          };
+        }
+        // If at limit, don't add (user needs to deselect first)
+        return prev;
+      }
+    });
   };
 
   const updateHottextStyle = (
@@ -1523,37 +1549,39 @@ export default function HottextBuilderPage() {
                     </Tabs>
 
                     <div className="space-y-4">
-                      {question.hottextItems.map((item) => (
+                      {question.hottextItems.map((item) => {
+                        const isCorrect = question.correctAnswers.includes(item.identifier);
+                        const maxChoices = question.maxChoices || 1;
+                        const isAtMaxLimit = question.correctAnswers.length >= maxChoices;
+                        const canToggle = isCorrect || !isAtMaxLimit;
+                        
+                        return (
                         <Card key={item.identifier} className="p-4">
                           <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
                               <Badge
-                                variant={
-                                  question.correctAnswers.includes(
-                                    item.identifier
-                                  )
-                                    ? "default"
-                                    : "secondary"
-                                }
+                                variant={isCorrect ? "default" : "secondary"}
                                 className={`
-                                cursor-pointer px-3 py-1 text-sm font-medium transition-all duration-200
+                                ${canToggle ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'} px-3 py-1 text-sm font-medium transition-all duration-200
                                 ${
-                                  question.correctAnswers.includes(
-                                    item.identifier
-                                  )
+                                  isCorrect
                                     ? "bg-green-600 text-white shadow-lg border-2 border-green-500"
-                                    : "bg-gray-400 text-white hover:bg-gray-500 border-2 border-gray-300"
+                                    : canToggle
+                                    ? "bg-gray-400 text-white hover:bg-gray-500 border-2 border-gray-300"
+                                    : "bg-gray-300 text-gray-600 border-2 border-gray-200"
                                 }
                               `}
-                                onClick={() =>
-                                  toggleCorrectAnswer(item.identifier)
-                                }
+                                onClick={() => {
+                                  if (canToggle) {
+                                    toggleCorrectAnswer(item.identifier);
+                                  }
+                                }}
                               >
-                                {question.correctAnswers.includes(
-                                  item.identifier
-                                )
+                                {isCorrect
                                   ? "✓ CORRECT ANSWER"
-                                  : "Click to mark as correct"}
+                                  : canToggle
+                                  ? "Click to mark as correct"
+                                  : `Max ${maxChoices} choice${maxChoices > 1 ? 's' : ''} reached`}
                               </Badge>
                               <Badge className="flex items-center justify-center text-sm font-medium bg-green-500 text-white ml-24">
                                 Choice Item :{" "}
@@ -1715,11 +1743,20 @@ export default function HottextBuilderPage() {
                           {renderStyleControls(item)}
                         </div> */}
                         </Card>
-                      ))}
+                      );
+                      })}
                     </div>
-                    <p className="text-sm text-gray-600">
-                      Click on badges to mark as correct answers
-                    </p>
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-600">
+                        Click on badges to mark as correct answers
+                      </p>
+                      <p className="text-xs text-blue-600">
+                        {question.maxChoices === 1 
+                          ? "Maximum 1 choice allowed - selecting a new answer will replace the current one"
+                          : `Maximum ${question.maxChoices} choices allowed - you have selected ${question.correctAnswers.length}/${question.maxChoices}`
+                        }
+                      </p>
+                    </div>
                   </CardContent>
                 </Card>
                 <Card>

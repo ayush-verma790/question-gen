@@ -95,7 +95,8 @@ const ContentBlockEditor = memo(
       "image"
     );
     const [mediaUrl, setMediaUrl] = useState("");
-    const [mediaAlt, setMediaAlt] = useState("");
+    const [mediaWidth, setMediaWidth] = useState("100");
+    const [mediaHeight, setMediaHeight] = useState("100");
     const [activeTextareaIndex, setActiveTextareaIndex] = useState<
       number | null
     >(null);
@@ -367,7 +368,7 @@ const ContentBlockEditor = memo(
 
       switch (mediaType) {
         case "image":
-          mediaTag = `<img src="${mediaUrl}" alt="${mediaAlt}" class="max-w-full h-auto" />`;
+          mediaTag = `<img src="${mediaUrl}" style="width: ${mediaWidth}%; height: ${mediaHeight}%;" />`;
           break;
         case "video":
           mediaTag = `<video src="${mediaUrl}" controls class="max-w-full"></video>`;
@@ -394,7 +395,8 @@ const ContentBlockEditor = memo(
 
       setShowMediaModal(false);
       setMediaUrl("");
-      setMediaAlt("");
+      setMediaWidth("100");
+      setMediaHeight("100");
     };
 
     // Handle button suggestion insertion
@@ -660,7 +662,7 @@ const ContentBlockEditor = memo(
 
                   {/* Media Modal */}
                   {showMediaModal && (
-                    <div className="absolute top-0 left-0 right-0 bg-white border rounded-lg shadow-lg p-4 z-50">
+                    <div className="absolute top-0 left-0 right-0 max-w-sm mx-auto bg-white border rounded-lg shadow-lg p-4 z-50">
                       <h3 className="font-medium mb-2">Insert {mediaType}</h3>
                       <input
                         type="text"
@@ -670,19 +672,42 @@ const ContentBlockEditor = memo(
                         className="w-full p-2 border rounded mb-2"
                       />
                       {mediaType === "image" && (
-                        <input
-                          type="text"
-                          value={mediaAlt}
-                          onChange={(e) => setMediaAlt(e.target.value)}
-                          placeholder="Alt text (optional)"
-                          className="w-full p-2 border rounded mb-2"
-                        />
+                        <div className="grid grid-cols-2 gap-2 mb-2">
+                          <div>
+                            <label className="block text-sm text-gray-600 mb-1">Width %</label>
+                            <input
+                              type="number"
+                              value={mediaWidth || "100"}
+                              onChange={(e) => setMediaWidth(e.target.value)}
+                              placeholder="Width %"
+                              min="1"
+                              max="100"
+                              className="w-full p-2 border rounded"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm text-gray-600 mb-1">Height %</label>
+                            <input
+                              type="number"
+                              value={mediaHeight || "100"}
+                              onChange={(e) => setMediaHeight(e.target.value)}
+                              placeholder="Height %"
+                              min="1"
+                              max="100"
+                              className="w-full p-2 border rounded"
+                            />
+                          </div>
+                        </div>
                       )}
                       <div className="flex justify-end gap-2">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setShowMediaModal(false)}
+                          onClick={() => {
+                            setShowMediaModal(false);
+                            setMediaWidth("100");
+                            setMediaHeight("100");
+                          }}
                         >
                           Cancel
                         </Button>
@@ -2096,7 +2121,7 @@ export default function TextEntryBuilderPage() {
                   <CardTitle>Question Details</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div>
+                  {/* <div>
                     <Label htmlFor="identifier">Question ID</Label>
                     <Input
                       id="identifier"
@@ -2108,8 +2133,8 @@ export default function TextEntryBuilderPage() {
                         }))
                       }
                     />
-                  </div>
-                  <div>
+                  </div> */}
+                  {/* <div>
                     <Label htmlFor="title">Title</Label>
                     <Input
                       id="title"
@@ -2121,7 +2146,7 @@ export default function TextEntryBuilderPage() {
                         }))
                       }
                     />
-                  </div>
+                  </div> */}
                   <div className="flex items-center gap-2">
                     <Checkbox
                       id="case-sensitive"
@@ -2159,7 +2184,7 @@ export default function TextEntryBuilderPage() {
           )}
           {activeTab === "feedbacks" && (
             <div className="space-y-6">
-              <ContentBlockEditor
+              {/* <ContentBlockEditor
                 blocks={question.correctFeedbackBlocks}
                 onChange={(blocks) =>
                   setQuestion((prev) => ({
@@ -2168,9 +2193,9 @@ export default function TextEntryBuilderPage() {
                   }))
                 }
                 title="Correct Feedback"
-              />
+              /> */}
               {/* Preview for Correct Feedback */}
-              <Card>
+              {/* <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-green-700">
                     <Eye className="w-4 h-4" /> Correct Feedback Preview
@@ -2200,7 +2225,7 @@ export default function TextEntryBuilderPage() {
                     </span>
                   )}
                 </CardContent>
-              </Card>
+              </Card> */}
               <ContentBlockEditor
                 blocks={question.incorrectFeedbackBlocks}
                 onChange={(blocks) =>
@@ -2214,7 +2239,7 @@ export default function TextEntryBuilderPage() {
               {/* Preview for Incorrect Feedback */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-red-700">
+                  <CardTitle className="flex items-center gap-2 ">
                     <Eye className="w-4 h-4" /> Incorrect Feedback Preview
                   </CardTitle>
                 </CardHeader>
@@ -2224,7 +2249,7 @@ export default function TextEntryBuilderPage() {
                     question.incorrectFeedbackBlocks.map((block) => (
                       <div
                         key={block.id}
-                        className="mb-2 p-2 bg-red-50 rounded border border-red-100"
+                        className="mb-2 p-2 border border-grey-100"
                       >
                         <span
                           dangerouslySetInnerHTML={{

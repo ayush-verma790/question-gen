@@ -28,15 +28,16 @@ import type { ContentBlock } from "@/lib/types"
 import { AdvancedColorPicker } from "@/components/advanced-color-picker"
 import { HTMLParser } from "@/components/html-parser"
 import { RichTextEditor } from "@/components/rich-text-editor"
-import { ButtonSuggestions } from "@/components/button-suggestions"
 
 interface ContentBlockEditorProps {
   blocks: ContentBlock[]
   onChange: (blocks: ContentBlock[]) => void
   title: string
+  height?: "small" | "large"
 }
+import { ButtonSuggestions } from "@/components/button-suggestions"
 
-export function ContentBlockEditor({ blocks, onChange, title }: ContentBlockEditorProps) {
+export function ContentBlockEditor({ blocks, onChange, title, height = "large" }: ContentBlockEditorProps) {
   const [selectedBlockType, setSelectedBlockType] = useState<ContentBlock["type"]>("text")
   const [showHTMLParser, setShowHTMLParser] = useState(false)
   const [openDesignPanels, setOpenDesignPanels] = useState<Record<string, boolean>>({})
@@ -65,7 +66,7 @@ export function ContentBlockEditor({ blocks, onChange, title }: ContentBlockEdit
         boxShadow: "none",
         textAlign: "left",
         width: "auto",
-        height: "auto",
+        height: height === "small" ? "100px" : "250px",
       },
       attributes: {
         width: "400",
@@ -349,6 +350,7 @@ export function ContentBlockEditor({ blocks, onChange, title }: ContentBlockEdit
                             value={block.content}
                             onChange={(value) => updateBlock(block.id, { content: value })}
                             placeholder="Enter your rich text content..."
+                            height={height === "small" ? "100px" : "250px"}
                           />
                           <div className="border-t pt-3 mt-4">
                             <div className="bg-gradient-to-r from-green-50 to-blue-50 p-1 rounded-xl border border-green-100">

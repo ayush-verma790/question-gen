@@ -327,7 +327,7 @@ function ChoiceBuilder() {
         {
           id: `option_block_${Date.now()}`,
           type: "text",
-          content: "Enter option text...",
+          content: "",
           styles: {},
           attributes: {},
         },
@@ -728,6 +728,7 @@ function ChoiceBuilder() {
                     setQuestion((prev) => ({ ...prev, promptBlocks: blocks }))
                   }
                   title="Question Prompt"
+                  height="large"
                 />
               </>
             )}
@@ -737,10 +738,7 @@ function ChoiceBuilder() {
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     Answer Options
-                    <Button onClick={addOption}>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Option
-                    </Button>
+                   
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -787,6 +785,7 @@ function ChoiceBuilder() {
                             updateOptionBlocks(option.identifier, blocks)
                           }
                           title="Option Content"
+                          height="small"
                         />
 
                         {/* <ContentBlockEditor
@@ -800,6 +799,14 @@ function ChoiceBuilder() {
                     </Card>
                   ))}
                 </CardContent>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-end">
+                    <Button onClick={addOption}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Option
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
               </Card>
             )}
 

@@ -139,7 +139,29 @@ export function RichTextEditor({
       for (const item of clipboardData) {
         if (item.types.includes("text/html")) {
           const htmlBlob = await item.getType("text/html");
-          const html = await htmlBlob.text();
+          let html = await htmlBlob.text();
+          
+          // Check if the HTML contains an image
+          if (html.includes("<img")) {
+            // Create a temporary div to parse the HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            const images = tempDiv.getElementsByTagName('img');
+            
+            for (let img of Array.from(images)) {
+              const src = img.getAttribute('src');
+              if (src) {
+                // Prompt for dimensions
+                const width = prompt('Enter image width (%) - default 100:', '100');
+                const height = prompt('Enter image height (%) - default 100:', '100');
+                
+                // Replace the image tag with our formatted version
+                const newImgTag = `<img src="${src}" alt="Image" style="width: ${width || '100'}%; height: ${height || '100'}%;" />`;
+                html = html.replace(img.outerHTML, newImgTag);
+              }
+            }
+          }
+          
           const cleanedHTML = cleanPasteHTML(html);
           insertAtCursor(cleanedHTML);
           return;
@@ -523,18 +545,51 @@ export function RichTextEditor({
           <PopoverContent className="w-80">
             <div className="space-y-3">
               <Label>Insert Image</Label>
-              <Input
-                placeholder="Enter image URL"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    const url = (e.target as HTMLInputElement).value;
+              <div className="space-y-2">
+                <Input
+                  placeholder="Enter image URL"
+                  id="imageUrl"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">Width (%)</Label>
+                    <Input
+                      type="number"
+                      defaultValue="100"
+                      min="1"
+                      max="100"
+                      id="imageWidth"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Height (%)</Label>
+                    <Input
+                      type="number"
+                      defaultValue="100"
+                      min="1"
+                      max="100"
+                      id="imageHeight"
+                    />
+                  </div>
+                </div>
+                <Button
+                  onClick={() => {
+                    const url = (document.getElementById('imageUrl') as HTMLInputElement)?.value;
+                    const width = (document.getElementById('imageWidth') as HTMLInputElement)?.value || '100';
+                    const height = (document.getElementById('imageHeight') as HTMLInputElement)?.value || '100';
                     if (url) {
-                      insertMedia("image", url);
-                      (e.target as HTMLInputElement).value = "";
+                      const imgTag = `<img src="${url}" alt="Image" style="width: ${width}%; height: ${height}%;" />`;
+                      insertAtCursor(imgTag);
+                      (document.getElementById('imageUrl') as HTMLInputElement).value = '';
+                      (document.getElementById('imageWidth') as HTMLInputElement).value = '100';
+                      (document.getElementById('imageHeight') as HTMLInputElement).value = '100';
                     }
-                  }
-                }}
-              />
+                  }}
+                  className="w-full"
+                >
+                  Insert Image
+                </Button>
+              </div>
             </div>
           </PopoverContent>
         </Popover>
@@ -655,6 +710,7 @@ export function RichTextEditor({
         onMouseUp={handleSelection}
         onKeyUp={handleSelection}
         onKeyDown={handleKeyDown}
+    
         placeholder={placeholder}
         className="min-h-72 resize-y"
         style={{ fontFamily: isHtmlMode ? "monospace" : "inherit" }}

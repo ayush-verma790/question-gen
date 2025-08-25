@@ -200,7 +200,7 @@ export default function ChoiceBuilderPage() {
 function ChoiceBuilder() {
   const searchParams = useSearchParams();
   const fromXML = searchParams.get("fromXML");
-  
+
   // Side navigation state - only one section visible at a time
   const [activeSection, setActiveSection] = useState<
     "question" | "options" | "feedback" | "preview"
@@ -211,7 +211,7 @@ function ChoiceBuilder() {
   ) => {
     setActiveSection(section);
   };
-  
+
   const [question, setQuestion] = useState<MultipleChoiceQuestion>({
     identifier: "choice-question-1",
     title: "Sample Multiple Choice Question",
@@ -224,15 +224,12 @@ function ChoiceBuilder() {
         attributes: {},
       },
     ],
-    options: [
-     
-    ],
+    options: [],
     correctFeedbackBlocks: [
       {
         id: "correct_feedback_block",
         type: "text",
-        content:
-          "",
+        content: "",
         styles: {},
         attributes: {},
       },
@@ -241,8 +238,7 @@ function ChoiceBuilder() {
       {
         id: "incorrect_feedback_block",
         type: "text",
-        content:
-          "",
+        content: "",
         styles: {},
         attributes: {},
       },
@@ -262,7 +258,7 @@ function ChoiceBuilder() {
     if (fromXML === "true") {
       const parsedXML = sessionStorage.getItem("parsedXML");
       const xmlType = sessionStorage.getItem("xmlType");
-      
+
       if (parsedXML && xmlType === "choice") {
         try {
           const parsedQuestion = parseMultipleChoiceXML(parsedXML);
@@ -356,29 +352,37 @@ function ChoiceBuilder() {
   const toggleCorrect = (identifier: string) => {
     setQuestion((prev) => {
       // Count how many correct answers we currently have
-      const currentCorrectCount = prev.options.filter(opt => opt.isCorrect).length;
-      const targetOption = prev.options.find(opt => opt.identifier === identifier);
+      const currentCorrectCount = prev.options.filter(
+        (opt) => opt.isCorrect
+      ).length;
+      const targetOption = prev.options.find(
+        (opt) => opt.identifier === identifier
+      );
 
       // If we're unchecking, always allow it
       if (targetOption?.isCorrect) {
         return {
           ...prev,
-          options: prev.options.map(opt =>
+          options: prev.options.map((opt) =>
             opt.identifier === identifier ? { ...opt, isCorrect: false } : opt
-          )
+          ),
         };
       }
 
       // If we're checking and already at max choices, prevent it
       if (currentCorrectCount >= prev.maxChoices) {
-        alert(`You can only select up to ${prev.maxChoices} correct answer${prev.maxChoices > 1 ? 's' : ''}`);
+        alert(
+          `You can only select up to ${prev.maxChoices} correct answer${
+            prev.maxChoices > 1 ? "s" : ""
+          }`
+        );
         return prev;
       }
 
       // Apply the changes
       return {
         ...prev,
-        options: prev.options.map(opt => {
+        options: prev.options.map((opt) => {
           if (opt.identifier === identifier) {
             return { ...opt, isCorrect: true };
           }
@@ -387,7 +391,7 @@ function ChoiceBuilder() {
             return { ...opt, isCorrect: false };
           }
           return opt;
-        })
+        }),
       };
     });
   };
@@ -580,7 +584,9 @@ function ChoiceBuilder() {
                 <Card>
                   <CardContent className="space-y-4 pt-4">
                     <div>
-                      <Label htmlFor="import-xml">Paste your QTI XML here</Label>
+                      <Label htmlFor="import-xml">
+                        Paste your QTI XML here
+                      </Label>
                       <textarea
                         id="import-xml"
                         value={importXML}
@@ -660,9 +666,15 @@ function ChoiceBuilder() {
                             const value = e.target.value;
                             const numValue = parseInt(value);
                             if (value === "") {
-                              setQuestion(prev => ({ ...prev, maxChoices: 1 }));
+                              setQuestion((prev) => ({
+                                ...prev,
+                                maxChoices: 1,
+                              }));
                             } else if (!isNaN(numValue) && numValue >= 1) {
-                              setQuestion(prev => ({ ...prev, maxChoices: numValue }));
+                              setQuestion((prev) => ({
+                                ...prev,
+                                maxChoices: numValue,
+                              }));
                             }
                           }}
                         />
@@ -672,7 +684,10 @@ function ChoiceBuilder() {
                         <Select
                           value={question.orientation}
                           onValueChange={(value: "vertical" | "horizontal") =>
-                            setQuestion((prev) => ({ ...prev, orientation: value }))
+                            setQuestion((prev) => ({
+                              ...prev,
+                              orientation: value,
+                            }))
                           }
                         >
                           <SelectTrigger>
@@ -680,7 +695,9 @@ function ChoiceBuilder() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="vertical">Vertical</SelectItem>
-                            <SelectItem value="horizontal">Horizontal</SelectItem>
+                            <SelectItem value="horizontal">
+                              Horizontal
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -689,7 +706,10 @@ function ChoiceBuilder() {
                           <Checkbox
                             checked={question.shuffle}
                             onCheckedChange={(checked) =>
-                              setQuestion((prev) => ({ ...prev, shuffle: !!checked }))
+                              setQuestion((prev) => ({
+                                ...prev,
+                                shuffle: !!checked,
+                              }))
                             }
                           />
                           <span>Shuffle</span>
@@ -746,11 +766,12 @@ function ChoiceBuilder() {
                               Option {option.identifier}
                             </Label>
                           </div>
-                        <div className="border border-1-green p-2 rounded-md bg-green-300">
-{`Choice Item: ${option.identifier.replace("choice_", "")}`
-
-}
-                        </div>
+                          <div className="border border-1-green p-2 rounded-md bg-green-300">
+                            {`Choice Item: ${option.identifier.replace(
+                              "choice_",
+                              ""
+                            )}`}
+                          </div>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -847,7 +868,9 @@ function ChoiceBuilder() {
                               >
                                 <input
                                   type={
-                                    question.maxChoices === 1 ? "radio" : "checkbox"
+                                    question.maxChoices === 1
+                                      ? "radio"
+                                      : "checkbox"
                                   }
                                   name="preview"
                                   disabled
@@ -900,7 +923,9 @@ function ChoiceBuilder() {
                                 Correct Answer Feedback
                               </h3>
                               {question.correctFeedbackBlocks.length > 0 ? (
-                                renderContentBlocks(question.correctFeedbackBlocks)
+                                renderContentBlocks(
+                                  question.correctFeedbackBlocks
+                                )
                               ) : (
                                 <p className="text-gray-500">
                                   No feedback configured
@@ -912,7 +937,9 @@ function ChoiceBuilder() {
                                 Incorrect Answer Feedback
                               </h3>
                               {question.incorrectFeedbackBlocks.length > 0 ? (
-                                renderContentBlocks(question.incorrectFeedbackBlocks)
+                                renderContentBlocks(
+                                  question.incorrectFeedbackBlocks
+                                )
                               ) : (
                                 <p className="text-gray-500">
                                   No feedback configured

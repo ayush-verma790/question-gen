@@ -87,6 +87,13 @@ const questionTypes = [
     icon: Type,
     href: "/builder/mix",
     color: "bg-red-500",
+  },  {
+    id: "STIMULUS",
+    title: "Stimulus ",
+    description: "All Stimulus types with rich content and flexible layouts",
+    icon: Type,
+    href: "/builder/stimulus",
+    color: "bg-red-500",
   },
 ];
 

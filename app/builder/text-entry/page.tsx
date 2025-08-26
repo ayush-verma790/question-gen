@@ -1642,12 +1642,12 @@ function parseTextEntryXML(xmlString: string): TextEntryQuestion {
         type: "text",
         content: feedbackContent,
         styles: {
-          fontSize: "16px",
-          color: "#e74c3c",
-          backgroundColor: "#fdf2f2",
-          padding: "16px",
-          borderRadius: "8px",
-          textAlign: "center",
+          fontSize: "",
+          color: "",
+          backgroundColor: "",
+          padding: "",
+          borderRadius: "",
+          textAlign: "",
         },
         attributes: {},
       });
@@ -1755,12 +1755,12 @@ export default function TextEntryBuilderPage() {
         type: "text",
         content: "",
         styles: {
-          fontSize: "16px",
-          color: "#e74c3c",
-          backgroundColor: "#fdf2f2",
-          padding: "16px",
-          borderRadius: "8px",
-          textAlign: "center",
+          fontSize: "",
+          color: "",
+          backgroundColor: "",
+          padding: "",
+          borderRadius: "",
+          textAlign: "",
         },
         attributes: {},
       },
@@ -2022,98 +2022,12 @@ export default function TextEntryBuilderPage() {
                     <Button variant="outline" onClick={handleClearXMLInput}>
                       Clear
                     </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setQuestion({
-                          identifier: "text-entry-demo",
-                          title: "Math Problem - Fill in the Blanks",
-                          promptBlocks: [
-                            {
-                              id: "prompt_block_1",
-                              type: "text",
-                              content:
-                                "Complete this math equation:<br/><strong>[1] + [2] = 10</strong><br/>What two numbers add up to 10?",
-                              styles: {
-                                fontSize: "18px",
-                                fontFamily: "Arial, sans-serif",
-                                color: "#2c3e50",
-                                backgroundColor: "#f8f9fa",
-                                padding: "16px",
-                                margin: "8px",
-                                borderRadius: "8px",
-                                border: "1px solid #e9ecef",
-                                textAlign: "left",
-                              },
-                              attributes: {},
-                            },
-                          ],
-                          textEntryBoxes: [
-                            {
-                              id: "box1",
-                              responseId: "RESPONSE1",
-                              expectedLength: 2,
-                              widthClass: "qti-input-width-3",
-                            },
-                            {
-                              id: "box2",
-                              responseId: "RESPONSE2",
-                              expectedLength: 2,
-                              widthClass: "qti-input-width-3",
-                            },
-                          ],
-                          correctAnswers: ["3", "7"],
-                          caseSensitive: false,
-                          correctFeedbackBlocks: [
-                            {
-                              id: "correct_feedback_block",
-                              type: "text",
-                              content:
-                                "Excellent! You got it right. 3 + 7 = 10",
-                              styles: {
-                                fontSize: "16px",
-                                color: "#27ae60",
-                                backgroundColor: "#d5f5e6",
-                                padding: "16px",
-                                borderRadius: "8px",
-                                textAlign: "center",
-                              },
-                              attributes: {},
-                            },
-                          ],
-                          incorrectFeedbackBlocks: [
-                            {
-                              id: "incorrect_feedback_block",
-                              type: "text",
-                              content:
-                                "Not quite right. Try again! Remember, the two numbers should add up to 10.",
-                              styles: {
-                                fontSize: "16px",
-                                color: "#e74c3c",
-                                backgroundColor: "#fdf2f2",
-                                padding: "16px",
-                                borderRadius: "8px",
-                                textAlign: "center",
-                              },
-                              attributes: {},
-                            },
-                          ],
-                        });
-                      }}
-                    >
-                      Load Sample
-                    </Button>
-                    <div className="text-sm text-gray-500 flex items-center ml-auto">
-                      💡 This will replace your current question with the
-                      imported one
-                    </div>
                   </div>
                 </CardContent>
               )}
             </Card>
           </div>
 
-          {/* Main content by tab */}
           {activeTab === "question" && (
             <div className="space-y-6">
               <Card>
@@ -2329,7 +2243,7 @@ export default function TextEntryBuilderPage() {
                 {/* Incorrect Feedback Preview */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-red-700">
+                    <CardTitle className="flex items-center gap-2 ">
                       <Eye className="w-4 h-4" />
                       Incorrect Feedback Preview
                     </CardTitle>
@@ -2337,11 +2251,10 @@ export default function TextEntryBuilderPage() {
                   <CardContent>
                     {question.incorrectFeedbackBlocks.length > 0 &&
                     question.incorrectFeedbackBlocks[0].content ? (
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <div className=" border  rounded-lg p-4">
                         {question.incorrectFeedbackBlocks.map((block) => (
                           <div
                             key={block.id}
-                            className="text-red-800"
                             dangerouslySetInnerHTML={{
                               __html: block.content.replace(
                                 /<br\s*\/?>/gi,

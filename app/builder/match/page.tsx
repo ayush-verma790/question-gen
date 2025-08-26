@@ -326,6 +326,11 @@ export default function MatchBuilderPage() {
   const [generatedXML, setGeneratedXML] = useState("")
   const [importXML, setImportXML] = useState("")
   const [showRenderPreview, setShowRenderPreview] = useState(false)
+  const [activeSection, setActiveSection] = useState<"question" | "pairs" | "feedback" | "preview">("question")
+
+  const switchToSection = (section: "question" | "pairs" | "feedback" | "preview") => {
+    setActiveSection(section)
+  }
 
   useEffect(() => {
     if (question.identifier && question.promptBlocks.length > 0 && question.pairs.length > 0) {
@@ -490,219 +495,275 @@ export default function MatchBuilderPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8 max-w-[80%]">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Match Question Builder</h1>
-          <p className="text-gray-600">Create matching pair questions with rich multimedia content</p>
+      <div className="container mx-auto px-4 py-8 max-w-7xl flex gap-6">
+        {/* Left Panel Navigation */}
+        <div className="w-56 flex-shrink-0 pr-6">
+          <div className="flex flex-col gap-2">
+            <button
+              className={`text-left px-4 py-2 rounded font-medium transition-colors ${
+                activeSection === "question"
+                  ? "bg-blue-100 text-blue-700"
+                  : "hover:bg-gray-100"
+              }`}
+              onClick={() => switchToSection("question")}
+            >
+              Question
+            </button>
+            <button
+              className={`text-left px-4 py-2 rounded font-medium transition-colors ${
+                activeSection === "pairs"
+                  ? "bg-blue-100 text-blue-700"
+                  : "hover:bg-gray-100"
+              }`}
+              onClick={() => switchToSection("pairs")}
+            >
+              Matching Pairs
+            </button>
+            <button
+              className={`text-left px-4 py-2 rounded font-medium transition-colors ${
+                activeSection === "feedback"
+                  ? "bg-blue-100 text-blue-700"
+                  : "hover:bg-gray-100"
+              }`}
+              onClick={() => switchToSection("feedback")}
+            >
+              Feedback
+            </button>
+            <button
+              className={`text-left px-4 py-2 rounded font-medium transition-colors ${
+                activeSection === "preview"
+                  ? "bg-blue-100 text-blue-700"
+                  : "hover:bg-gray-100"
+              }`}
+              onClick={() => switchToSection("preview")}
+            >
+              Preview
+            </button>
+          </div>
         </div>
 
-        <div className="grid lg:grid-cols-1 gap-8">
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Import XML</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="import-xml">Paste your XML here</Label>
-                  <textarea
-                    id="import-xml"
-                    value={importXML}
-                    onChange={(e) => setImportXML(e.target.value)}
-                    placeholder="Paste your match question XML here..."
-                    className="w-full h-40 p-2 border rounded-md font-mono text-sm"
-                  />
-                </div>
-                <Button onClick={handleImportXML}>
-                  <Upload className="w-4 h-4 mr-2" />
-                  Import XML
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Question Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="identifier">Question ID</Label>
-                  <Input
-                    id="identifier"
-                    value={question.identifier}
-                    onChange={(e) => setQuestion((prev) => ({ ...prev, identifier: e.target.value }))}
-                    placeholder="e.g., match-question-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="title">Title</Label>
-                  <Input
-                    id="title"
-                    value={question.title}
-                    onChange={(e) => setQuestion((prev) => ({ ...prev, title: e.target.value }))}
-                    placeholder="Question title"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Max Associations</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={question.maxAssociations}
-                      onChange={(e) =>
-                        setQuestion((prev) => ({ ...prev, maxAssociations: Number.parseInt(e.target.value) || 1 }))
-                      }
-                    />
-                  </div>
-                  <div className="flex items-end">
-                    <label className="flex items-center gap-2">
-                      <Checkbox
-                        checked={question.shuffle}
-                        onCheckedChange={(checked) => setQuestion((prev) => ({ ...prev, shuffle: !!checked }))}
-                      />
-                      <span>Shuffle options</span>
-                    </label>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <ContentBlockEditor
-              blocks={question.promptBlocks}
-              onChange={(blocks) => setQuestion((prev) => ({ ...prev, promptBlocks: blocks }))}
-              title="Question Prompt"
-            />
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  Matching Pairs
-                  <Button onClick={addPair}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Pair
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {question.pairs.map((pair, index) => (
-                  <Card key={pair.leftId} className="p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <Label className="font-medium">Pair {index + 1}</Label>
-                      <Button variant="ghost" size="sm" onClick={() => removePair(pair.leftId)}>
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      <div>
-                        <ContentBlockEditor
-                          blocks={pair.leftContentBlocks}
-                          onChange={(blocks) => updateLeftBlocks(pair.leftId, blocks)}
-                          title="Left Item"
-                        />
-                      </div>
-
-                      <div>
-                        <ContentBlockEditor
-                          blocks={pair.rightContentBlocks}
-                          onChange={(blocks) => updateRightBlocks(pair.leftId, blocks)}
-                          title="Right Item"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex justify-center mt-4">
-                      <ArrowRight className="w-6 h-6 text-green-600" />
-                    </div>
-                  </Card>
-                ))}
-              </CardContent>
-            </Card>
-
-            {/* <ContentBlockEditor
-              blocks={question.correctFeedbackBlocks}
-              onChange={(blocks) => setQuestion((prev) => ({ ...prev, correctFeedbackBlocks: blocks }))}
-              title="Correct Answer Feedback"
-            /> */}
-
-            <ContentBlockEditor
-              blocks={question.incorrectFeedbackBlocks}
-              onChange={(blocks) => setQuestion((prev) => ({ ...prev, incorrectFeedbackBlocks: blocks }))}
-              title="Incorrect Answer Feedback"
-            />
+        {/* Main Content Area */}
+        <div className="flex-1 min-w-0">
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Match Question Builder</h1>
+            <p className="text-gray-600">Create matching pair questions with rich multimedia content</p>
           </div>
 
-         
-        </div>
-         <div className="space-y-6 mt-5">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Eye className="w-5 h-5" />
-                  Preview
-                </CardTitle>
-              
-              </CardHeader>
-              <CardContent>
-                {question.promptBlocks.length > 0 && question.pairs.length > 0 ? (
-                  <div className="space-y-4">
-                    <div>{renderContentBlocks(question.promptBlocks)}</div>
-                    <div className="grid grid-cols-2 gap-6">
-                      <div>
-                        <p className="text-sm font-medium text-gray-700 mb-2">Left Items:</p>
-                        <div className="space-y-2">
-                          {question.pairs
-                            .slice()
-                            .sort(() => (question.shuffle ? Math.random() - 0.5 : 0))
-                            .map((pair) => (
-                              <div key={pair.leftId} className="p-2 border rounded bg-blue-50 cursor-pointer">
-                                {renderContentBlocks(pair.leftContentBlocks)}
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-700 mb-2">Right Items:</p>
-                        <div className="space-y-2">
-                          {question.pairs
-                            .slice()
-                            .sort(() => (question.shuffle ? Math.random() - 0.5 : 0))
-                            .map((pair) => (
-                              <div key={pair.rightId} className="p-2 border rounded bg-green-50 cursor-pointer">
-                                {renderContentBlocks(pair.rightContentBlocks)}
-                              </div>
-                            ))}
-                        </div>
-                      </div>
+          <div className="w-full space-y-6">
+            {activeSection === "question" && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Import XML</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label htmlFor="import-xml">Paste your XML here</Label>
+                      <textarea
+                        id="import-xml"
+                        value={importXML}
+                        onChange={(e) => setImportXML(e.target.value)}
+                        placeholder="Paste your match question XML here..."
+                        className="w-full h-40 p-2 border rounded-md font-mono text-sm"
+                      />
                     </div>
-                    <div className="text-xs text-gray-500">
-                      <strong>Correct matches:</strong>
-                      {question.pairs.map((pair, index) => (
-                        <div key={pair.leftId} className="flex items-center gap-2 mt-1">
-                          <span className="font-medium">{index + 1}.</span>
-                          <div className="flex items-center gap-2">
-                            <div className="text-sm">{renderContentBlocks(pair.leftContentBlocks)}</div>
-                            <ArrowRight className="w-3 h-3" />
-                            <div className="text-sm">{renderContentBlocks(pair.rightContentBlocks)}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-gray-500">Add question prompt and matching pairs to see preview</p>
-                )}
-              </CardContent>
-            </Card>
+                    <Button onClick={handleImportXML}>
+                      <Upload className="w-4 h-4 mr-2" />
+                      Import XML
+                    </Button>
+                  </CardContent>
+                </Card>
 
-            {generatedXML && (
-              <XMLViewer xml={generatedXML} filename={`${question.identifier || "match-question"}.xml`} />
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Question Details</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label htmlFor="identifier">Question ID</Label>
+                      <Input
+                        id="identifier"
+                        value={question.identifier}
+                        onChange={(e) => setQuestion((prev) => ({ ...prev, identifier: e.target.value }))}
+                        placeholder="e.g., match-question-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="title">Title</Label>
+                      <Input
+                        id="title"
+                        value={question.title}
+                        onChange={(e) => setQuestion((prev) => ({ ...prev, title: e.target.value }))}
+                        placeholder="Question title"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Max Associations</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={question.maxAssociations}
+                          onChange={(e) =>
+                            setQuestion((prev) => ({ ...prev, maxAssociations: Number.parseInt(e.target.value) || 1 }))
+                          }
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        <label className="flex items-center gap-2">
+                          <Checkbox
+                            checked={question.shuffle}
+                            onCheckedChange={(checked) => setQuestion((prev) => ({ ...prev, shuffle: !!checked }))}
+                          />
+                          <span>Shuffle options</span>
+                        </label>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <ContentBlockEditor
+                  blocks={question.promptBlocks}
+                  onChange={(blocks) => setQuestion((prev) => ({ ...prev, promptBlocks: blocks }))}
+                  title="Question Prompt"
+                />
+              </div>
             )}
 
-              <PreviewRenderer xmlContent={generatedXML} questionType="match" />
-        
+            {activeSection === "pairs" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    Matching Pairs
+                    <Button onClick={addPair}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Pair
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {question.pairs.map((pair, index) => (
+                    <Card key={pair.leftId} className="p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <Label className="font-medium">Pair {index + 1}</Label>
+                        <Button variant="ghost" size="sm" onClick={() => removePair(pair.leftId)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div>
+                          <ContentBlockEditor
+                            blocks={pair.leftContentBlocks}
+                            onChange={(blocks) => updateLeftBlocks(pair.leftId, blocks)}
+                            title="Left Item"
+                          />
+                        </div>
+
+                        <div>
+                          <ContentBlockEditor
+                            blocks={pair.rightContentBlocks}
+                            onChange={(blocks) => updateRightBlocks(pair.leftId, blocks)}
+                            title="Right Item"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-center mt-4">
+                        <ArrowRight className="w-6 h-6 text-green-600" />
+                      </div>
+                    </Card>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {activeSection === "feedback" && (
+              <div className="space-y-6">
+                <ContentBlockEditor
+                  blocks={question.correctFeedbackBlocks}
+                  onChange={(blocks) => setQuestion((prev) => ({ ...prev, correctFeedbackBlocks: blocks }))}
+                  title="Correct Answer Feedback"
+                />
+
+                <ContentBlockEditor
+                  blocks={question.incorrectFeedbackBlocks}
+                  onChange={(blocks) => setQuestion((prev) => ({ ...prev, incorrectFeedbackBlocks: blocks }))}
+                  title="Incorrect Answer Feedback"
+                />
+              </div>
+            )}
+
+            {activeSection === "preview" && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Eye className="w-5 h-5" />
+                      Preview
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {question.promptBlocks.length > 0 && question.pairs.length > 0 ? (
+                      <div className="space-y-4">
+                        <div>{renderContentBlocks(question.promptBlocks)}</div>
+                        <div className="grid grid-cols-2 gap-6">
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 mb-2">Left Items:</p>
+                            <div className="space-y-2">
+                              {question.pairs
+                                .slice()
+                                .sort(() => (question.shuffle ? Math.random() - 0.5 : 0))
+                                .map((pair) => (
+                                  <div key={pair.leftId} className="p-2 border rounded bg-blue-50 cursor-pointer">
+                                    {renderContentBlocks(pair.leftContentBlocks)}
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 mb-2">Right Items:</p>
+                            <div className="space-y-2">
+                              {question.pairs
+                                .slice()
+                                .sort(() => (question.shuffle ? Math.random() - 0.5 : 0))
+                                .map((pair) => (
+                                  <div key={pair.rightId} className="p-2 border rounded bg-green-50 cursor-pointer">
+                                    {renderContentBlocks(pair.rightContentBlocks)}
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          <strong>Correct matches:</strong>
+                          {question.pairs.map((pair, index) => (
+                            <div key={pair.leftId} className="flex items-center gap-2 mt-1">
+                              <span className="font-medium">{index + 1}.</span>
+                              <div className="flex items-center gap-2">
+                                <div className="text-sm">{renderContentBlocks(pair.leftContentBlocks)}</div>
+                                <ArrowRight className="w-3 h-3" />
+                                <div className="text-sm">{renderContentBlocks(pair.rightContentBlocks)}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-gray-500">Add question prompt and matching pairs to see preview</p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {generatedXML && (
+                  <XMLViewer xml={generatedXML} filename={`${question.identifier || "match-question"}.xml`} />
+                )}
+
+                <PreviewRenderer xmlContent={generatedXML} questionType="match" />
+              </div>
+            )}
           </div>
+        </div>
       </div>
     </div>
   )

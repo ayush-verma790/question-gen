@@ -34,7 +34,7 @@ import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AdvancedColorPicker } from "../components/advanced-color-picker"
+import  AdvancedColorPicker  from "../components/ui/colorpcker"
 
 interface RichTextEditorProps {
   value: string

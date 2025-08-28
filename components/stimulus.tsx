@@ -347,15 +347,21 @@ export function RichTextEditor({
 
       editorRef.current.focus()
 
+
       try {
         if (["bold", "italic", "underline", "strikeThrough"].includes(command)) {
+          document.execCommand(command, false, value)
+        } else if (command === "formatBlock") {
+          // For headings and paragraphs (h1-h6, p)
+          document.execCommand("formatBlock", false, value)
+        } else if (["justifyLeft", "justifyCenter", "justifyRight"].includes(command)) {
           document.execCommand(command, false, value)
         } else {
           console.log(`[v0] Using modern approach for command: ${command}`)
           return false
         }
       } catch (e) {
-        console.log(`[v0] execCommand failed for ${command}, using fallback`)
+        console.log(`[v0] execCommand failed for ${command}`, e)
         return false
       }
 
@@ -1193,45 +1199,27 @@ export function RichTextEditor({
           </PopoverTrigger>
           <PopoverContent className="w-48">
             <div className="space-y-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start"
-                onClick={() => formatText("formatBlock", "h1")}
-              >
-                <Heading1 className="w-4 h-4 mr-2" />
-                Heading 1
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start"
-                onClick={() => formatText("formatBlock", "h2")}
-              >
-                <Heading2 className="w-4 h-4 mr-2" />
-                Heading 2
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start"
-                onClick={() => formatText("formatBlock", "h3")}
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                Heading 3
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start"
-                onClick={() => formatText("formatBlock", "p")}
-              >
-                <Type className="w-4 h-4 mr-2" />
-                Normal Text
-              </Button>
+              <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => formatText("formatBlock", "h1")}> <Heading1 className="w-4 h-4 mr-2" /> Heading 1 </Button>
+              <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => formatText("formatBlock", "h2")}> <Heading2 className="w-4 h-4 mr-2" /> Heading 2 </Button>
+              <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => formatText("formatBlock", "h3")}> <FileText className="w-4 h-4 mr-2" /> Heading 3 </Button>
+              <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => formatText("formatBlock", "h4")}> <span className="w-4 h-4 mr-2 font-bold">H4</span> Heading 4 </Button>
+              <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => formatText("formatBlock", "h5")}> <span className="w-4 h-4 mr-2 font-bold">H5</span> Heading 5 </Button>
+              <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => formatText("formatBlock", "h6")}> <span className="w-4 h-4 mr-2 font-bold">H6</span> Heading 6 </Button>
+              <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => formatText("formatBlock", "p")}> <Type className="w-4 h-4 mr-2" /> Normal Text </Button>
             </div>
           </PopoverContent>
         </Popover>
+        
+        {/* Alignment Buttons */}
+        <Button variant="outline" size="sm" onMouseDown={handleToolbarMouseDown} onClick={() => formatText("justifyLeft")} title="Align Left">
+          <span className="w-4 h-4 mr-1">L</span>
+        </Button>
+        <Button variant="outline" size="sm" onMouseDown={handleToolbarMouseDown} onClick={() => formatText("justifyCenter")} title="Align Center">
+          <span className="w-4 h-4 mr-1">C</span>
+        </Button>
+        <Button variant="outline" size="sm" onMouseDown={handleToolbarMouseDown} onClick={() => formatText("justifyRight")} title="Align Right">
+          <span className="w-4 h-4 mr-1">R</span>
+        </Button>
 
         <Button
           variant="outline"

@@ -14,6 +14,7 @@ import {
   ImageIcon,
   Video,
   Music,
+  Sigma,
 } from "lucide-react";
 import { AdvancedColorPicker } from "@/components/advanced-color-picker";
 import {
@@ -30,6 +31,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Popover as HeadlessPopover } from "@headlessui/react";
 
 interface RichTextEditorProps {
   value: string;
@@ -58,7 +60,6 @@ export function RichTextEditor({
       editorRef.current.innerHTML = value;
     }
   }, [value]);
-
 
   // Helper to convert line breaks to <br> for internal value
   const linebreaksToBr = (text: string) => {
@@ -360,6 +361,116 @@ export function RichTextEditor({
     [onChange]
   );
 
+  // MathML generator helpers
+  const mathTemplates = {
+    fraction: (a: string, b: string) => `<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mfrac><mi>${a}</mi><mi>${b}</mi></mfrac></math>`,
+    superscript: (base: string, exp: string) => `<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><msup><mi>${base}</mi><mn>${exp}</mn></msup></math>`,
+    subscript: (base: string, sub: string) => `<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><msub><mi>${base}</mi><mn>${sub}</mn></msub></math>`,
+    sqrt: (x: string) => `<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><msqrt><mi>${x}</mi></msqrt></math>`,
+    minus: () => `<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mo>&#x2212;</mo></math>`,
+    plusminus: () => `<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mo>&#xB1;</mo></math>`,
+    pythagoras: () => `<math xmlns=\"http://www.w3.org/1998/Math/MathML\" display=\"block\"><mrow><msup><mi>a</mi><mn>2</mn></msup><mo>+</mo><msup><mi>b</mi><mn>2</mn></msup><mo>=</mo><msup><mi>c</mi><mn>2</mn></msup></mrow></math>`,
+  };
+  const [mathType, setMathType] = useState('');
+  const [mathArgs, setMathArgs] = useState<Record<string, string>>({});
+  const [customMathML, setCustomMathML] = useState('');
+  const insertMathML = (ml: string) => {
+    insertAtCursor(ml);
+    setMathType('');
+    setMathArgs({});
+    setCustomMathML('');
+  };
+  // Math font size state
+  const [mathFontSize, setMathFontSize] = useState('24px');
+  const [customMathFontSize, setCustomMathFontSize] = useState('');
+  function renderMathPopover() {
+    return (
+      <HeadlessPopover className="relative">
+        <HeadlessPopover.Button as={Button} variant="outline" size="sm" type="button">
+          <Sigma className="w-4 h-4" /> Math
+        </HeadlessPopover.Button>
+        <HeadlessPopover.Panel className="absolute z-10 mt-2 left-0 bg-white border rounded shadow-lg p-4 w-80">
+          <div className="mb-2 font-semibold">Insert Math Expression</div>
+          <div className="flex flex-wrap gap-2 mb-3">
+            <Button size="sm" variant={mathType==='fraction'?"default":"outline"} onClick={()=>{setMathType('fraction');setMathArgs({a:'',b:''});}}>a/b</Button>
+            <Button size="sm" variant={mathType==='superscript'?"default":"outline"} onClick={()=>{setMathType('superscript');setMathArgs({base:'',exp:''});}}>a<sup>2</sup></Button>
+            <Button size="sm" variant={mathType==='subscript'?"default":"outline"} onClick={()=>{setMathType('subscript');setMathArgs({base:'',sub:''});}}>a<sub>2</sub></Button>
+            <Button size="sm" variant={mathType==='sqrt'?"default":"outline"} onClick={()=>{setMathType('sqrt');setMathArgs({x:''});}}>√x</Button>
+            <Button size="sm" variant={mathType==='minus'?"default":"outline"} onClick={()=>{setMathType('minus');setMathArgs({}); insertMathML(mathTemplates.minus());}}>−</Button>
+            <Button size="sm" variant={mathType==='plusminus'?"default":"outline"} onClick={()=>{setMathType('plusminus');setMathArgs({}); insertMathML(mathTemplates.plusminus());}}>±</Button>
+            <Button size="sm" variant={mathType==='pythagoras'?"default":"outline"} onClick={()=>{insertMathML(mathTemplates.pythagoras());}}>a²+b²=c²</Button>
+            <Button size="sm" variant={mathType==='custom'?"default":"outline"} onClick={()=>{setMathType('custom');}}>Custom MathML</Button>
+          </div>
+          {/* Math font size selector and custom input */}
+          <div className="mb-3">
+            <Label>Math Size</Label>
+            <div className="flex gap-2 items-center">
+              <Select value={mathFontSize} onValueChange={val => { setMathFontSize(val); setCustomMathFontSize(''); }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select size" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="16px">Small</SelectItem>
+                  <SelectItem value="24px">Normal</SelectItem>
+                  <SelectItem value="32px">Large</SelectItem>
+                  <SelectItem value="48px">Extra Large</SelectItem>
+                </SelectContent>
+              </Select>
+              <span>or</span>
+              <Input
+                type="number"
+                min="8"
+                max="200"
+                step="1"
+                placeholder="Custom px"
+                value={customMathFontSize}
+                style={{width:'80px'}}
+                onChange={e => {
+                  setCustomMathFontSize(e.target.value);
+                  setMathFontSize(e.target.value ? e.target.value + 'px' : mathFontSize);
+                }}
+              />
+              <span>px</span>
+            </div>
+          </div>
+          {mathType==='fraction' && (
+            <form onSubmit={e=>{e.preventDefault();insertMathML(`<span style=\"font-size: ${mathFontSize};\">${mathTemplates.fraction(mathArgs.a||'a',mathArgs.b||'b')}</span>`);}} className="space-y-2">
+              <div className="flex gap-2"><Input size={8} placeholder="a" value={mathArgs.a||''} onChange={e=>setMathArgs(v=>({...v,a:e.target.value}))} /><span>/</span><Input size={8} placeholder="b" value={mathArgs.b||''} onChange={e=>setMathArgs(v=>({...v,b:e.target.value}))} /></div>
+              <Button type="submit" size="sm" className="w-full">Insert</Button>
+            </form>
+          )}
+          {mathType==='superscript' && (
+            <form onSubmit={e=>{e.preventDefault();insertMathML(`<span style=\"font-size: ${mathFontSize};\">${mathTemplates.superscript(mathArgs.base||'a',mathArgs.exp||'2')}</span>`);}} className="space-y-2">
+              <div className="flex gap-2"><Input size={8} placeholder="Base (a)" value={mathArgs.base||''} onChange={e=>setMathArgs(v=>({...v,base:e.target.value}))} /><span>^</span><Input size={8} placeholder="Exponent (2)" value={mathArgs.exp||''} onChange={e=>setMathArgs(v=>({...v,exp:e.target.value}))} /></div>
+              <Button type="submit" size="sm" className="w-full">Insert</Button>
+            </form>
+          )}
+          {mathType==='subscript' && (
+            <form onSubmit={e=>{e.preventDefault();insertMathML(`<span style=\"font-size: ${mathFontSize};\">${mathTemplates.subscript(mathArgs.base||'a',mathArgs.sub||'2')}</span>`);}} className="space-y-2">
+              <div className="flex gap-2"><Input size={8} placeholder="Base (a)" value={mathArgs.base||''} onChange={e=>setMathArgs(v=>({...v,base:e.target.value}))} /><span>_</span><Input size={8} placeholder="Subscript (2)" value={mathArgs.sub||''} onChange={e=>setMathArgs(v=>({...v,sub:e.target.value}))} /></div>
+              <Button type="submit" size="sm" className="w-full">Insert</Button>
+            </form>
+          )}
+          {mathType==='sqrt' && (
+            <form onSubmit={e=>{e.preventDefault();insertMathML(`<span style=\"font-size: ${mathFontSize};\">${mathTemplates.sqrt(mathArgs.x||'x')}</span>`);}} className="space-y-2">
+              <div className="flex gap-2"><span>√</span><Input size={8} placeholder="x" value={mathArgs.x||''} onChange={e=>setMathArgs(v=>({...v,x:e.target.value}))} /></div>
+              <Button type="submit" size="sm" className="w-full">Insert</Button>
+            </form>
+          )}
+          {mathType==='custom' && (
+            <form onSubmit={e=>{e.preventDefault();insertMathML(`<span style=\"font-size: ${mathFontSize};\">${customMathML}</span>`);}} className="space-y-2">
+              <Label>Paste or write MathML below:</Label>
+              <div>
+                <Textarea value={customMathML} onChange={e=>setCustomMathML(e.target.value)} rows={5} placeholder="<math>...</math>" />
+              </div>
+              <Button type="submit" size="sm" className="w-full">Insert</Button>
+            </form>
+          )}
+        </HeadlessPopover.Panel>
+      </HeadlessPopover>
+    );
+  }
+
   const formatButtons = [
     // { icon: Bold, label: "Bold", action: () => formatText("bold") },
     // Removed invalid Linebreak icon entry
@@ -372,6 +483,7 @@ export function RichTextEditor({
   return (
     <div className={`space-y-3 ${className}`}>
       <div className="flex items-center gap-2 flex-wrap p-3 border rounded-lg bg-gray-50">
+        {renderMathPopover()}
         {formatButtons.map((button) => {
           const IconComponent = button.icon;
           return (
@@ -435,6 +547,29 @@ export function RichTextEditor({
           onClick={() => wrapSelection("<br/>")}
         >
           Line Break
+        </Button>
+        <div className="h-4 w-px bg-gray-300 mx-1" />
+        {/* Alignment Buttons */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => wrapSelection('<div style="text-align:left;">', '</div>')}
+        >
+          Left
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => wrapSelection('<div style="text-align:center;">', '</div>')}
+        >
+          Center
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => wrapSelection('<div style="text-align:right;">', '</div>')}
+        >
+          Right
         </Button>
         <div className="h-4 w-px bg-gray-300 mx-1" />
         <Popover>
@@ -666,27 +801,7 @@ export function RichTextEditor({
         >
           <s>S</s>
         </button>
-        <button
-          type="button"
-          onClick={() => formatText("justifyLeft")}
-          className="px-2 py-1 text-sm border rounded hover:bg-gray-200"
-        >
-          ←
-        </button>
-        <button
-          type="button"
-          onClick={() => formatText("justifyCenter")}
-          className="px-2 py-1 text-sm border rounded hover:bg-gray-200"
-        >
-          ↔
-        </button>
-        <button
-          type="button"
-          onClick={() => formatText("justifyRight")}
-          className="px-2 py-1 text-sm border rounded hover:bg-gray-200"
-        >
-          →
-        </button>
+        {/* Remove justifyLeft/Center/Right buttons here, replaced above with more robust alignment */}
         <input
           type="color"
           onChange={(e) => formatText("foreColor", e.target.value)}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Sigma } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -647,12 +648,17 @@ export default function HottextBuilderPage() {
     }
   };
 
+  // MathML state for hottext item
+  const [selectedMathML, setSelectedMathML] = useState("");
   const addHottextItem = () => {
     let contentValue = "";
     if (activeTab === "text" && !selectedText.trim()) return;
     if (activeTab === "image" && !selectedImage.trim()) return;
     if (activeTab === "html" && !selectedHTML.trim()) return;
+    //@ts-ignore
+    if (activeTab === "mathml" && !selectedMathML.trim()) return;
 
+    let itemType = activeTab;
     if (activeTab === "text") {
       let formattedText = selectedText.trim();
       if (textFormat.bold) formattedText = `<strong>${formattedText}</strong>`;
@@ -660,15 +666,17 @@ export default function HottextBuilderPage() {
       if (textFormat.underline) formattedText = `<u>${formattedText}</u>`;
       contentValue = formattedText;
     } else if (activeTab === "image") {
-      // Create proper img tag with closing tag
       contentValue = `<img src="${selectedImage.trim()}" alt="Hottext image" />`;
+      //@ts-ignore
+    } else if (activeTab === "mathml") {
+      contentValue = selectedMathML.trim();
+      //@ts-ignore
+      itemType = "mathml";
     } else {
       contentValue = selectedHTML.trim();
     }
 
     let finalStyles;
-
-    // If a button style is selected, use it
     if (selectedButtonStyle) {
       finalStyles = {
         display: "inline-block",
@@ -678,14 +686,12 @@ export default function HottextBuilderPage() {
         ...selectedButtonStyle,
       };
     } else {
-      // Default styling if no style is selected
       const defaultStyles = {
         display: "inline-block",
         padding: "0px",
         margin: "10px",
         transition: "all 0.3s ease",
       };
-
       const typeSpecificStyles = {
         text: {
           backgroundColor: "",
@@ -711,18 +717,26 @@ export default function HottextBuilderPage() {
           padding: "10px",
           border: "1px dashed #ccc",
         },
+        mathml: {
+          backgroundColor: "",
+          color: "",
+          fontSize: "",
+          width: "auto",
+          height: "auto",
+          borderRadius: "",
+    
+        },
       };
-
       finalStyles = {
         ...defaultStyles,
-        ...typeSpecificStyles[activeTab],
+        ...typeSpecificStyles[itemType],
       };
     }
 
     const newItem: HottextItem = {
       identifier: `HT${question.hottextItems.length + 1}`,
       content: {
-        type: activeTab,
+        type: itemType,
         value: contentValue,
       },
       styles: finalStyles,
@@ -734,10 +748,10 @@ export default function HottextBuilderPage() {
       hottextItems: [...prev.hottextItems, newItem],
     }));
 
-    // Reset all states
     setSelectedText("");
     setSelectedImage("");
     setSelectedHTML("");
+    setSelectedMathML("");
     setSelectedButtonStyle(null);
     setShowContentInput(false);
     setTextFormat({ bold: false, italic: false, underline: false });
@@ -1472,10 +1486,14 @@ export default function HottextBuilderPage() {
                       value={activeTab}
                       onValueChange={(value) => setActiveTab(value as any)}
                     >
-                      <TabsList className="grid grid-cols-3 w-full">
+                      <TabsList className="grid grid-cols-4 w-full">
                         <TabsTrigger value="text">
                           <FileText className="w-4 h-4 mr-2" />
                           Text
+                        </TabsTrigger>
+                         <TabsTrigger value="mathml">
+                          <Sigma className="w-4 h-4 mr-2" />
+                          Math
                         </TabsTrigger>
                         <TabsTrigger value="image">
                           <ImageIcon className="w-4 h-4 mr-2" />
@@ -1486,6 +1504,24 @@ export default function HottextBuilderPage() {
                           HTML
                         </TabsTrigger>
                       </TabsList>
+                      <TabsContent value="mathml" className="space-y-2">
+                        <div className="flex flex-col gap-2">
+                          <Label>Enter MathML or use the Math Editor:</Label>
+                          <RichTextEditor
+                            value={selectedMathML}
+                            onChange={setSelectedMathML}
+                            placeholder="Paste or build MathML here..."
+                            className="min-h-[80px]"
+                            height="80px"
+                          />
+                          <Button
+                            onClick={addHottextItem}
+                            disabled={!selectedMathML.trim()}
+                          >
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TabsContent>
 
                       <TabsContent value="text" className="space-y-4">
                         {/* Rich Text Editor Section */}

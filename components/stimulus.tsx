@@ -375,9 +375,29 @@ export function RichTextEditor({
 
   const formatText = useCallback(
     (command: string, value?: string) => {
+      if (command === "formatBlock" && value && editorRef.current) {
+        const selection = window.getSelection()
+        if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
+          const range = selection.getRangeAt(0)
+          // Create heading element
+          const heading = document.createElement(value)
+          heading.appendChild(range.extractContents())
+          range.insertNode(heading)
+          // Move cursor after heading
+          range.setStartAfter(heading)
+          range.setEndAfter(heading)
+          selection.removeAllRanges()
+          selection.addRange(range)
+          // Update state
+          const newValue = editorRef.current.innerHTML
+          setHtmlValue(newValue)
+          onChange(newValue)
+          return
+        }
+      }
       execCommand(command, value)
     },
-    [execCommand],
+    [execCommand, onChange],
   )
 
   const applyTextColor = useCallback(
@@ -1835,7 +1855,7 @@ export function RichTextEditor({
             onClick={handleEditorClick}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
-            className={`$
+            className={`rich-text-editor ${
               isA4Mode
                 ? "w-[210mm] h-[297mm] mx-auto bg-white shadow-lg p-[25.4mm] border"
                 : "min-h-72 p-4 border rounded-lg bg-white"
@@ -1843,10 +1863,7 @@ export function RichTextEditor({
               isDragOver ? "border-blue-500 bg-blue-50" : ""
             }`}
             style={{
-              minHeight: isA4Mode ? "297mm" : "200px",
-              fontFamily: "Times New Roman, serif",
-              fontSize: "12pt",
-              lineHeight: "1.5",
+              minHeight: isA4Mode ? "297mm" : "200px"
             }}
             suppressContentEditableWarning={true}
             data-placeholder={placeholder}
